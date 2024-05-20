@@ -1,0 +1,15 @@
+{application, ws_anim,
+ [{description, "An Erlang web server for animating in JS over a web socket."},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {mod, {ws_anim_app, []}},
+  {applications,
+   [kernel,
+    stdlib
+   ]},
+  {env,[]},
+  {modules, []},
+
+  {licenses, ["Apache-2.0"]},
+  {links, []}
+ ]}.
