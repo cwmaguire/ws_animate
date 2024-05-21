@@ -40,10 +40,10 @@ subs(ChannelPid) ->
 init(Id) ->
     {ok, #state{id = Id}}.
 
-handle_call(join, From, State = #state{id = Id, sockets = Sockets, subs = Subs}) ->
+handle_call(join, {From, _}, State = #state{id = Id, sockets = Sockets, subs = Subs}) ->
     Log = "{\"log\": \"Joined " ++ Id ++ "\"}",
     {reply, Log, State#state{sockets = [From | Sockets], subs = [{From, log} | Subs]}};
-handle_call(leave, From, State = #state{id = Id, sockets = Sockets, subs = Subs}) ->
+handle_call(leave, {From, _}, State = #state{id = Id, sockets = Sockets, subs = Subs}) ->
     Log = "{\"log\": \"Left " ++ Id ++ "\"}",
     Filter = fun({From_, _}) when From_ == From -> false; (_) -> true end,
     NewSubs = lists:filter(Filter, Subs),
@@ -52,7 +52,7 @@ handle_call(leave, From, State = #state{id = Id, sockets = Sockets, subs = Subs}
 handle_call({add_animator, Name}, _From, State = #state{animators = Animators}) ->
     {Log, Animator} = add_animator_(Name, State),
     {reply, Log, State#state{animators = [Animator | Animators]}};
-handle_call({sub, TypeBin}, From, State = #state{subs = Subs}) ->
+handle_call({sub, TypeBin}, {From, _}, State = #state{subs = Subs}) ->
     Type = type(TypeBin),
     case {Type, lists:member({From, Type}, Subs)} of
         {undefined, _} ->
@@ -65,7 +65,9 @@ handle_call({sub, TypeBin}, From, State = #state{subs = Subs}) ->
             Log = log(<<"Subbed to ", TypeBin/binary>>),
             {reply, Log, State#state{subs = [{From, Type} | Subs]}}
     end;
-handle_call(subs, From, State = #state{subs = Subs}) ->
+handle_call(subs, {From, _}, State = #state{subs = Subs}) ->
+    io:format(user, "From = ~p~n", [From]),
+    io:format(user, "Subs = ~p~n", [Subs]),
     Types = [atom_to_binary(Type) || {Socket, Type} <- Subs, Socket == From],
     io:format(user, "Types = ~p~n", [Types]),
     IoList = [<<"Subbed to [">>, lists:join(<<", ">>, Types), <<"]">>],
