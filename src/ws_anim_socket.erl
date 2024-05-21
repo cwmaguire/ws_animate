@@ -54,11 +54,20 @@ do(<<"channel join ", Name/binary>>, State = #state{channel = undefined}) ->
 do(<<"channel join ", Name/binary>>, State = #state{channel_name = Name}) ->
     Log = log(<<"Already joined to channel ", Name/binary>>),
     {Log, State};
-do(<<"channel leave">>, State = #state{channel = Channel}) when Channel /= undefined->
-    Log = ws_anim_channel:leave(Channel),
-    {Log, State#state{channel = undefined}};
 do(<<"channel leave">>, State = #state{channel = undefined}) ->
     Log = log(<<"Not in a channel">>),
+    {Log, State};
+do(<<"channel leave">>, State = #state{channel = Channel}) ->
+    Log = ws_anim_channel:leave(Channel),
+    {Log, State#state{channel = undefined}};
+do(<<"channel sub ", _/binary>>, State = #state{channel = undefined}) ->
+    Log = log(<<"Not in a channel">>),
+    {Log, State};
+do(<<"channel sub ", Type/binary>>, State = #state{channel = Channel}) ->
+    Log = ws_anim_channel:sub(Channel, Type),
+    {Log, State};
+do(<<"channel subs">>, State = #state{channel = Channel}) ->
+    Log = ws_anim_channel:subs(Channel),
     {Log, State};
 do(<<"animator add ", Animator/binary>>, State = #state{channel = Channel}) ->
     Log = ws_anim_channel:add_animator(Channel, Animator),

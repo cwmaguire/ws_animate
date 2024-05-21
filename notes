@@ -1,4 +1,13 @@
 ┏━━━━━━━━━━━━━━━━┓
+┃   2024-05-21   ┃
+┗━━━━━━━━━━━━━━━━┛
+
+Should I have a seprate buffer process for draw commands, or just
+use the channel? For now I think I'll just use the channel. I don't think
+there will be enough draw commands to overwhelm the channel so it can't
+respond to commands without slowing down the animation.
+
+┏━━━━━━━━━━━━━━━━┓
 ┃   2024-05-20   ┃
 ┗━━━━━━━━━━━━━━━━┛
 

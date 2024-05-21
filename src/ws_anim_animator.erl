@@ -27,5 +27,5 @@ handle_cast(_, State) ->
 
 handle_info(animate, State = #state{name = Name, channel = Channel}) ->
     erlang:send_after(1000, self(), animate),
-    Channel ! {send, <<"{\"animate\": \"foo\", \"name\": \"", Name/binary, "}">>},
+    Channel ! {send, draw, <<"{\"animate\": \"foo\", \"name\": \"", Name/binary, "}">>},
     {noreply, State}.
