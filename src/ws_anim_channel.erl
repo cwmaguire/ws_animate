@@ -88,29 +88,29 @@ handle_info(Info, State) ->
 
 add_animator_(Spec, State) ->
     case get_animator(Spec) of
-        {error, String} ->
-            Error = iolist_to_binary(io_lib:format("Invalid animator add command ~p", [String])),
+        {error, Bin} ->
+            Error = <<"Invalid animator add command \"", Bin/binary, "\"">>,
             Log = <<"{\"Log\": \"", Error/binary, "\"}">>,
             {Log, State};
-        {error, String1, _String2} ->
-            Error = iolist_to_binary(io_lib:format("Could not find animator ~p", [String1])),
+        {error, Bin1, _Bin2} ->
+            Error = <<"Could not find animator \"", Bin1/binary, "\"">>,
             Log = <<"{\"Log\": \"", Error/binary, "\"}">>,
             {Log, State};
         {ok, AnimatorModule, Name} ->
             {ok, Pid} = AnimatorModule:start(Name),
-            Log = log(<<"Added animator ", AnimatorModule/binary>>),
+            Log = log(<<"Added animator ", Name/binary>>),
             {Log, Pid}
     end.
 
 % Hack
-get_animator("animator1 " ++ Name) when Name /= ""->
+get_animator(<<"animator1 ", Name/binary>>) when Name /= <<"">> ->
     {ok, ws_anim_animator, Name};
-get_animator(String) ->
-    case lists:splitwith(fun($ ) -> false; (_) -> true end, String) of
-        {String1, []} ->
-            {error, String1};
-        {String1, String2} ->
-            {error, String1, String2}
+get_animator(Bin) ->
+    case binary:split(Bin, <<" ">>) of
+        [Bin1] ->
+            {error, Bin1};
+        [Bin1, Bin2] ->
+            {error, Bin1, Bin2}
     end.
 
 type(<<"log">>) -> log;
