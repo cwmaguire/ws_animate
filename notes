@@ -1,0 +1,50 @@
+┏━━━━━━━━━━━━━━━━┓
+┃   2024-05-20   ┃
+┗━━━━━━━━━━━━━━━━┛
+
+The websocket handler is going to be a shell where the web page can
+start animation servers and then register for events from those servers
+
+Each web page can have multiple animation servers running in parallel
+
+The websocket handler will handle all communication between animation
+servers and the socket
+
+So, if I'm going to have multiple websocket connections all working
+together, I'll need a separate server.
+
+Hmm, and if any connection to the server dies, I don't want the server
+to die: i.e. if 1 of 3 websockets closes, the server shouldn't shut down
+and disconnect the other two.
+
+I think the websockets can monitor the Erlang server and then disconnect
+if it dies.
+
+I'm not going to bother with any kind of security.
+
+So, if I'm going to connect a 2nd websocket to an existing Erlang socket
+handler, I'll need to either lookup what handlers exist, or specify an
+ID that I know in advance
+
+I could have a handler registry; but then how would a JS client know
+which one to pick. I think the first JS client should specify an ID
+and then any other clients can use that same ID; kind of a channel
+identifier
+
+The socket server could monitor the websocket connections and if they all
+die then the server dies.
+
+Okay, I have a channel registry and channels. Now I need to add animators
+to the channels. Animators will be hard-coded, but will have parameters
+that can be set so they can be played with from the web page.
+
+I might need to have the animators expose paramters with their types so that
+the control page can render them as UI controls.
+
+If I can have multiple animators per channel, how do I control which animator
+gets a parameter set?
+I think each animator will need a local name.
+
+Would a JS client ever need to join multiple channels? I don't think so.
+Should joining a channel automatically leave any previous channel?
+No, let's make it so you have to explicitly leave a channel.

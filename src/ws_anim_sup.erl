@@ -15,8 +15,7 @@ start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 init([]) ->
-    SupFlags = #{strategy => simple_one_for_one,
-                 intensity => 0,
-                 period => 1},
-    ChildSpecs = [#{id => fake, start => {fake, fake, []}}],
+    SupFlags = #{},
+    ChildSpecs = [#{id => registry,
+                    start => {ws_anim_channel_registry, start_link, []}}],
     {ok, {SupFlags, ChildSpecs}}.

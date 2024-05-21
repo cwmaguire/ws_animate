@@ -17,7 +17,7 @@ start(_Type, _Args) ->
 
     Dispatch = cowboy_router:compile([
         {'_', [{"/static", ws_anim_static_handler, []},
-               {"/ws", ws_anim_ws_handler, []},
+               {"/ws", ws_anim_socket, []},
                {"/", cowboy_static, {priv_file, ws_anim, "html/index.html"}},
                {"/scripts/[...]", cowboy_static, {priv_dir, ws_anim, "scripts"}},
                {"/html/[...]", cowboy_static, {priv_dir, ws_anim, "html"}}]}
