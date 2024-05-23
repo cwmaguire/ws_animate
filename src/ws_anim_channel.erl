@@ -14,10 +14,13 @@
 -export([handle_cast/2]).
 -export([handle_info/2]).
 
+-define(FRAME_MILLIS, 400).
+
 -record(state, {id = "no ID set",
                 sockets = [],
                 animators = [],
-                subs = []}).
+                subs = [],
+                buffer = []}).
 
 start(Id) ->
     gen_server:start(?MODULE, _Args = Id, _Opts = []).
@@ -38,6 +41,7 @@ subs(ChannelPid) ->
     gen_server:call(ChannelPid, subs).
 
 init(Id) ->
+    erlang:send_after(?FRAME_MILLIS, self(), send_buffer),
     {ok, #state{id = Id}}.
 
 handle_call(join, {From, _}, State = #state{id = Id, sockets = Sockets, subs = Subs}) ->
@@ -82,6 +86,15 @@ handle_cast(_, State) ->
 handle_info({send, Type, Text}, State = #state{subs = Subs}) ->
     [Socket ! {send, Text} || {Socket, Type_} <- Subs, Type_ == Type],
     {noreply, State};
+handle_info({buffer, Type, Bin}, State = #state{buffer = Buffer}) ->
+    {noreply, State#state{buffer = [{Type, Bin} | Buffer]}};
+handle_info(send_buffer, State = #state{subs = Subs, buffer = Buffer}) ->
+    %io:format("Send buffer~n"),
+    [Socket ! {send, Bin} || {Socket, SubType} <- Subs,
+                             {MessageType, Bin} <- [{draw, clear_json()} | Buffer],
+                             SubType == MessageType],
+    erlang:send_after(?FRAME_MILLIS, self(), send_buffer),
+    {noreply, State#state{buffer = []}};
 handle_info(Info, State) ->
     io:format("Received erlang message: ~n~p~n", [Info]),
     {ok, State}.
@@ -90,11 +103,11 @@ add_animator_(Spec, State) ->
     case get_animator(Spec) of
         {error, Bin} ->
             Error = <<"Invalid animator add command \"", Bin/binary, "\"">>,
-            Log = <<"{\"Log\": \"", Error/binary, "\"}">>,
+            Log = log(Error),
             {Log, State};
         {error, Bin1, _Bin2} ->
             Error = <<"Could not find animator \"", Bin1/binary, "\"">>,
-            Log = <<"{\"Log\": \"", Error/binary, "\"}">>,
+            Log = log(Error),
             {Log, State};
         {ok, AnimatorModule, Name} ->
             {ok, Pid} = AnimatorModule:start(Name),
@@ -117,5 +130,10 @@ type(<<"log">>) -> log;
 type(<<"draw">>) -> draw;
 type(_) -> undefined.
 
+clear_json() ->
+  iolist_to_binary(json:encode(#{type => <<"draw">>, cmd => <<"clear">>})).
+
 log(Bin) ->
-    <<"{\"log\": \"", Bin/binary, "\"}">>.
+    %%<<"{\"type\": \"log\", \"log\": \"", Bin/binary, "\"}">>.
+    iolist_to_binary(json:encode(#{type => <<"log">>, log => Bin})).
+

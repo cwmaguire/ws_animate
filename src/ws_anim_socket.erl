@@ -12,7 +12,8 @@ init(Req, _) ->
     {cowboy_websocket, Req, []}.
 
 websocket_init(_InitState) ->
-    {_Response = [{text, <<"Hello!">>}], #state{}}.
+    Json = iolist_to_binary(json:encode(#{type => <<"log">>, log => <<"Hello!">>})),
+    {_Response = [{text, Json}], #state{}}.
 
 websocket_handle(Frame = {text, Bin}, State) ->
     io:format("Received text frame: ~n~p~n", [Frame]),

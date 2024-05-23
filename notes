@@ -7,6 +7,12 @@ use the channel? For now I think I'll just use the channel. I don't think
 there will be enough draw commands to overwhelm the channel so it can't
 respond to commands without slowing down the animation.
 
+The channel has to send the "clear" draw call or else the individual
+animation processes will be clearing each other.
+
+If no socket is subscribed to a buffered message then it is just thrown
+away.
+
 ┏━━━━━━━━━━━━━━━━┓
 ┃   2024-05-20   ┃
 ┗━━━━━━━━━━━━━━━━┛
