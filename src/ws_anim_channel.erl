@@ -14,7 +14,7 @@
 -export([handle_cast/2]).
 -export([handle_info/2]).
 
--define(FRAME_MILLIS, 400).
+-define(FRAME_MILLIS, 40).
 
 -record(state, {id = "no ID set",
                 sockets = [],
@@ -67,6 +67,7 @@ handle_call({sub, TypeBin}, {From, _}, State = #state{subs = Subs}) ->
             {reply, Log, State};
         {_, false} ->
             Log = log(<<"Subbed to ", TypeBin/binary>>),
+            new_sub(Type, State),
             {reply, Log, State#state{subs = [{From, Type} | Subs]}}
     end;
 handle_call(subs, {From, _}, State = #state{subs = Subs}) ->
@@ -91,7 +92,7 @@ handle_info({buffer, Type, Bin}, State = #state{buffer = Buffer}) ->
 handle_info(send_buffer, State = #state{subs = Subs, buffer = Buffer}) ->
     %io:format("Send buffer~n"),
     [Socket ! {send, Bin} || {Socket, SubType} <- Subs,
-                             {MessageType, Bin} <- [{draw, clear_json()} | Buffer],
+                             {MessageType, Bin} <- [{draw, draw_clear_json()} | Buffer],
                              SubType == MessageType],
     erlang:send_after(?FRAME_MILLIS, self(), send_buffer),
     {noreply, State#state{buffer = []}};
@@ -99,6 +100,7 @@ handle_info(Info, State) ->
     io:format("Received erlang message: ~n~p~n", [Info]),
     {ok, State}.
 
+%% TODO check for animator with same user-assigned name
 add_animator_(Spec, State) ->
     case get_animator(Spec) of
         {error, Bin} ->
@@ -130,7 +132,31 @@ type(<<"log">>) -> log;
 type(<<"draw">>) -> draw;
 type(_) -> undefined.
 
-clear_json() ->
+new_sub(control, #state{subs = Subs, animators = Animators}) ->
+    send_controls(Subs),
+    [A ! send_controls || A <- Animators];
+new_sub(_, _) ->
+    ok.
+
+send_controls(Subs) ->
+    Select = #{id => <<"create_animator">>,
+               name => <<"create_animator">>,
+               label => <<"Create Animator">>,
+               options => [#{value => <<"squares">>,
+                             text => <<"Squares">>}]},
+    SelectJson = json(Select),
+    ClearControlsJson = control_clear_json(),
+
+    [Socket ! {send, ClearControlsJson} || {Socket, control} <- Subs],
+    [Socket ! {send, SelectJson} || {Socket, control} <- Subs].
+
+json(Map) ->
+  iolist_to_binary(json:encode(Map)).
+
+control_clear_json() ->
+  iolist_to_binary(json:encode(#{type => <<"control">>, cmd => <<"clear">>})).
+
+draw_clear_json() ->
   iolist_to_binary(json:encode(#{type => <<"draw">>, cmd => <<"clear">>})).
 
 log(Bin) ->

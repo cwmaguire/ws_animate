@@ -1,5 +1,6 @@
 // Create WebSocket connection.
 const socket = new WebSocket("ws://localhost:8081/ws");
+var channel;
 
 // Connection opened
 socket.addEventListener("open", (event) => {
@@ -11,14 +12,13 @@ socket.addEventListener("open", (event) => {
 
 // Listen for messages
 socket.addEventListener("message", (event) => {
-  //console.log(`Server: `, event.data);
   obj = JSON.parse(event.data);
-  //console.log(`JSON: ${obj.cmd}`);
   if(obj.type == "draw"){
-    //console.log("Type is draw");
     draw(obj);
-  }else{
-    //console.log(`Type is: ${obj.type}`);
+  }else if(obj.type == "info" && Object.hasOwn(obj, "channel_name")){
+    channel = obj.channel_name;
+  }else if(obj.type == "log"){
+    console.log(obj.log);
   }
 });
 
@@ -28,8 +28,6 @@ function notNullOrUndefined(val){
 
 function draw(Command){
   const {cmd} = Command;
-  //console.log(`Command.cmd ${Command.cmd}`);
-  //console.log(`cmd is '${cmd}', ${typeof cmd}`);
   c = ctx();
   switch(cmd){
     case "clear":
@@ -48,7 +46,6 @@ function clear({ctx, w, h}){
 }
 
 function square({ctx}, {x, y, w, h, style}){
-  //console.log(`Style is ${style}`);
   console.log("square");
   ctx.strokeSyle = style;
   ctx.strokeRect(x, y, w, h);
@@ -58,4 +55,14 @@ function ctx(){
   const canvas = document.getElementById("canvas1");
   const ctx = canvas.getContext("2d");
   return {ctx: ctx, w: canvas.width, h: canvas.height};
+}
+
+function animationControls(){
+  openNewWindow("animation_controls");
+}
+
+function openNewWindow(name) {
+  const url = `http://localhost:8081/html/${name}.html`;
+  const qs = new URLSearchParams({channel: channel}).toString();
+  window.open(`${url}?${qs}`, "_blank", "width=600,height=400");
 }
