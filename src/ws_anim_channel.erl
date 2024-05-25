@@ -45,10 +45,10 @@ init(Id) ->
     {ok, #state{id = Id}}.
 
 handle_call(join, {From, _}, State = #state{id = Id, sockets = Sockets, subs = Subs}) ->
-    Log = "{\"log\": \"Joined " ++ Id ++ "\"}",
+    Log = ws_anim_utils:log(<<"Joined ", Id/binary>>),
     {reply, Log, State#state{sockets = [From | Sockets], subs = [{From, log} | Subs]}};
 handle_call(leave, {From, _}, State = #state{id = Id, sockets = Sockets, subs = Subs}) ->
-    Log = "{\"log\": \"Left " ++ Id ++ "\"}",
+    Log = ws_anim_utils:log(<<"Left ", Id/binary>>),
     Filter = fun({From_, _}) when From_ == From -> false; (_) -> true end,
     NewSubs = lists:filter(Filter, Subs),
     NewSockets = lists:delete(From, Sockets),
@@ -60,15 +60,17 @@ handle_call({sub, TypeBin}, {From, _}, State = #state{subs = Subs}) ->
     Type = type(TypeBin),
     case {Type, lists:member({From, Type}, Subs)} of
         {undefined, _} ->
-            Log = log(<<"Invalid type: ", TypeBin/binary>>),
+            Log = ws_anim_utils:log(<<"Invalid type: ", TypeBin/binary>>),
             {reply, Log, State};
         {_, true} ->
-            Log = log(<<"Already subbed to ", TypeBin/binary>>),
+            Log = ws_anim_utils:log(<<"Already subbed to ", TypeBin/binary>>),
             {reply, Log, State};
         {_, false} ->
-            Log = log(<<"Subbed to ", TypeBin/binary>>),
-            new_sub(Type, State),
-            {reply, Log, State#state{subs = [{From, Type} | Subs]}}
+            NewSubs = [{From, Type} | Subs],
+            NewState = State#state{subs = NewSubs},
+            new_sub(Type, NewState),
+            Log = ws_anim_utils:log(<<"Subbed to ", TypeBin/binary>>),
+            {reply, Log, NewState}
     end;
 handle_call(subs, {From, _}, State = #state{subs = Subs}) ->
     io:format(user, "From = ~p~n", [From]),
@@ -76,7 +78,7 @@ handle_call(subs, {From, _}, State = #state{subs = Subs}) ->
     Types = [atom_to_binary(Type) || {Socket, Type} <- Subs, Socket == From],
     io:format(user, "Types = ~p~n", [Types]),
     IoList = [<<"Subbed to [">>, lists:join(<<", ">>, Types), <<"]">>],
-    Log = log(iolist_to_binary(IoList)),
+    Log = ws_anim_utils:log(iolist_to_binary(IoList)),
     {reply, Log, State};
 handle_call(_, _From, State) ->
     {reply, ok, State}.
@@ -105,15 +107,15 @@ add_animator_(Spec, State) ->
     case get_animator(Spec) of
         {error, Bin} ->
             Error = <<"Invalid animator add command \"", Bin/binary, "\"">>,
-            Log = log(Error),
+            Log = ws_anim_utils:log(Error),
             {Log, State};
         {error, Bin1, _Bin2} ->
             Error = <<"Could not find animator \"", Bin1/binary, "\"">>,
-            Log = log(Error),
+            Log = ws_anim_utils:log(Error),
             {Log, State};
         {ok, AnimatorModule, Name} ->
             {ok, Pid} = AnimatorModule:start(Name),
-            Log = log(<<"Added animator ", Name/binary>>),
+            Log = ws_anim_utils:log(<<"Added animator ", Name/binary>>),
             {Log, Pid}
     end.
 
@@ -130,6 +132,7 @@ get_animator(Bin) ->
 
 type(<<"log">>) -> log;
 type(<<"draw">>) -> draw;
+type(<<"control">>) -> control;
 type(_) -> undefined.
 
 new_sub(control, #state{subs = Subs, animators = Animators}) ->
@@ -139,7 +142,9 @@ new_sub(_, _) ->
     ok.
 
 send_controls(Subs) ->
-    Select = #{id => <<"create_animator">>,
+    Select = #{type => <<"control">>,
+               cmd => <<"select">>,
+               id => <<"create_animator">>,
                name => <<"create_animator">>,
                label => <<"Create Animator">>,
                options => [#{value => <<"squares">>,
@@ -158,8 +163,3 @@ control_clear_json() ->
 
 draw_clear_json() ->
   iolist_to_binary(json:encode(#{type => <<"draw">>, cmd => <<"clear">>})).
-
-log(Bin) ->
-    %%<<"{\"type\": \"log\", \"log\": \"", Bin/binary, "\"}">>.
-    iolist_to_binary(json:encode(#{type => <<"log">>, log => Bin})).
-

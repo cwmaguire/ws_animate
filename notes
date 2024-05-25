@@ -2,6 +2,15 @@
 ┃   2024-05-25   ┃
 ┗━━━━━━━━━━━━━━━━┛
 
+Ah, turns out if JavaScript opens a new window, the new window has a reference
+to the opener.
+
+Websocket is closing "clean" with code 1000 - normal.
+
+┏━━━━━━━━━━━━━━━━┓
+┃   2024-05-25   ┃
+┗━━━━━━━━━━━━━━━━┛
+
 If I'm going to have a background animation, like a changing gradient or
 something, then I'll need to set the Z-index of each draw command. I could
 the draw commands on the server or in the web page. I think I'd prefer

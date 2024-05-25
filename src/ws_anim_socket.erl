@@ -12,18 +12,18 @@ init(Req, _) ->
     {cowboy_websocket, Req, []}.
 
 websocket_init(_InitState) ->
-    Log = log(<<"Connected">>),
+    Log = ws_anim_utils:log(<<"Connected">>),
     {_Response = [{text, Log}], #state{}}.
 
 websocket_handle(Frame = {text, Bin}, State) ->
-    io:format("Received text frame: ~n~p~n", [Frame]),
+    io:format("Received text frame: ~n~p: ~p~n", [self(), Frame]),
     {Msgs, NewState} = do(Bin, State),
     %io:format("Sending back ~p~n", [ReturnText]),
     Return = [{text, Msg} || Msg <- Msgs],
     {Return, NewState};
-websocket_handle(Frame, Animator) ->
-    io:format("Received other frame: ~n~p~n", [Frame]),
-    {ok, Animator}.
+websocket_handle(Frame, State) ->
+    io:format("Received other frame: ~n~p: ~p~n", [self(), Frame]),
+    {ok, State}.
 
 websocket_info({send, Text}, State) ->
     {[{text, Text}], State};
@@ -32,40 +32,40 @@ websocket_info(Info, State) ->
     {ok, State}.
 
 do(<<"channel name">>, State = #state{channel = undefined}) ->
-    Log = log(<<"Not joined to channel">>),
+    Log = ws_anim_utils:log(<<"Not joined to channel">>),
     {[Log], State};
 do(<<"channel name">>, State = #state{channel_name = ChannelName}) ->
-    Log = log(<<"Joined to channel ", ChannelName/binary>>),
+    Log = ws_anim_utils:log(<<"Joined to channel ", ChannelName/binary>>),
     {[Log], State};
 do(<<"channel list">>, State) ->
     Log = ws_anim_channel_registry:list(),
     {[Log], State};
 do(<<"channel start">>, _State) ->
     {Pid, Name} = ws_anim_channel_registry:start(),
-    Info = info(#{channel_name => Name}),
-    Log = log(<<"Channel name is ", Name/binary>>),
+    Info = ws_anim_utils:info(#{channel_name => Name}),
+    Log = ws_anim_utils:log(<<"Channel name is ", Name/binary>>),
     {[Info, Log], #state{channel = Pid,
                          channel_name = Name}};
 do(<<"channel join ", Name/binary>>, State = #state{channel = undefined}) ->
     case ws_anim_channel_registry:lookup(Name) of
         undefined ->
-            Log = log(<<"Could not find channel", Name/binary>>),
+            Log = ws_anim_utils:log(<<"Could not find channel", Name/binary>>),
             {[Log], State};
         Pid ->
              Log = ws_anim_channel:join(Pid),
              {[Log], State#state{channel = Pid}}
     end;
 do(<<"channel join ", Name/binary>>, State = #state{channel_name = Name}) ->
-    Log = log(<<"Already joined to channel ", Name/binary>>),
+    Log = ws_anim_utils:log(<<"Already joined to channel ", Name/binary>>),
     {[Log], State};
 do(<<"channel leave">>, State = #state{channel = undefined}) ->
-    Log = log(<<"Not in a channel">>),
+    Log = ws_anim_utils:log(<<"Not in a channel">>),
     {[Log], State};
 do(<<"channel leave">>, State = #state{channel = Channel}) ->
     Log = ws_anim_channel:leave(Channel),
     {[Log], State#state{channel = undefined}};
 do(<<"channel sub ", _/binary>>, State = #state{channel = undefined}) ->
-    Log = log(<<"Not in a channel">>),
+    Log = ws_anim_utils:log(<<"Not in a channel">>),
     {[Log], State};
 do(<<"channel sub ", Type/binary>>, State = #state{channel = Channel}) ->
     Log = ws_anim_channel:sub(Channel, Type),
@@ -77,15 +77,5 @@ do(<<"animator add ", Animator/binary>>, State = #state{channel = Channel}) ->
     Log = ws_anim_channel:add_animator(Channel, Animator),
     {[Log], State};
 do(Other, State) ->
-    Log = log(<<"Command '", Other/binary, "' not recognized">>),
+    Log = ws_anim_utils:log(<<"Command '", Other/binary, "' not recognized">>),
     {[Log], State}.
-
-info(Map) ->
-    json(Map#{type => <<"info">>}).
-
-log(Bin) ->
-    json(#{type => log, log => Bin}).
-    %%<<"{\"log\": \"", Bin/binary, "\"}">>.
-
-json(Map) ->
-  iolist_to_binary(json:encode(Map)).

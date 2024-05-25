@@ -35,7 +35,8 @@ init(_Args) ->
 handle_call(list, _From, State) ->
     NamesList = [Name || {Name, _} <- State#state.channels],
     Names = iolist_to_binary(lists:join(<<", ">>, NamesList)),
-    Log = <<"{\"Channels\": [", Names/binary, "]}">>,
+
+    Log = ws_anim_utils:log(<<"{\"Channels\": [", Names/binary, "]}">>),
     {reply, Log, State};
 handle_call(start, _From, State = #state{next_id = NextId, channels = Channels}) ->
     Id = integer_to_binary(NextId),
@@ -44,8 +45,8 @@ handle_call(start, _From, State = #state{next_id = NextId, channels = Channels})
      {Pid, Id},
      State#state{next_id = NextId + 1,
                  channels = [{Id, Pid} | Channels]}};
-handle_call({lookup, Name}, _From, State) ->
-    MaybePid = proplists:get_value(Name, State),
+handle_call({lookup, Name}, _From, State = #state{channels = Channels}) ->
+    MaybePid = proplists:get_value(Name, Channels),
     {reply, MaybePid, State}.
 
 handle_cast(_, State) ->

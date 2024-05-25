@@ -2,8 +2,9 @@
 
 // Create WebSocket connection.
 var socket;
-const channel = getQueryStringChannel();
+var channel = getQueryStringChannel();
 setup_websocket(channel);
+window.opener.console.log("Message from controls window");
 
 function getQueryStringChannel() {
     // window.location.search: Sets or returns the querystring part of a URL
@@ -13,35 +14,52 @@ function getQueryStringChannel() {
 
 function setup_websocket(channel){
   socket = new WebSocket("ws://localhost:8081/ws");
-  socket.addEventListener("open", socketOpenListener(channel);
+  socket.addEventListener("open", socketOpenListener(channel));
   socket.addEventListener("message", socketMessage);
+  socket.addEventListener("error", socketError);
+  socket.addEventListener("close", socketClose);
 }
 
 function socketOpenListener(channel){
-  (event) => {
+  return (event) => {
+    console.log("Opened socket, sending commands");
     socket.send(`channel join ${channel}`);
     socket.send("channel sub control");
   }
 }
 
 function socketMessage(event){
+  log(event.data);
   obj = JSON.parse(event.data);
   if(obj.type == "control"){
     control(obj);
   }
 }
 
+function socketError(event){
+  console.log("Websocket error: ", event);
+}
+
+function socketClose(event){
+  console.log("Websocket close. Code: ", event.code, ". Reason: ", event.reason, ". Clean? ", event.wasClean);
+}
+
+function log(str){
+  const d = document.createElement("div");
+  d.innerText = str;
+  document.body.appendChild(d);
+}
+
 function control(Command){
   const {cmd} = Command;
   //console.log(`Command.cmd ${Command.cmd}`);
   //console.log(`cmd is '${cmd}', ${typeof cmd}`);
-  c = ctx();
   switch(cmd){
     case "clear":
-      clear(c);
+      clear();
       break;
     case "select":
-      select(c, Command);
+      select(Command);
       break;
     default:
       console.log(`Ignoring command ${cmd}`);
@@ -59,7 +77,7 @@ function select({id, name, label, options}){
   s.id = id;
   s.name = name;
 
-  options.forEach(({value, text})) => {
+  options.forEach(({value, text}) => {
     const o = document.createElement('option');
     o.value = value;
     o.textContent = text;
@@ -73,4 +91,3 @@ function select({id, name, label, options}){
   document.body.appendChild(l);
   document.body.appendChild(s);
 }
-

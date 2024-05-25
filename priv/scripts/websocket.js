@@ -12,6 +12,7 @@ socket.addEventListener("open", (event) => {
 
 // Listen for messages
 socket.addEventListener("message", (event) => {
+  //console.log(`Event: ${event.data}`);
   obj = JSON.parse(event.data);
   if(obj.type == "draw"){
     draw(obj);
@@ -20,6 +21,14 @@ socket.addEventListener("message", (event) => {
   }else if(obj.type == "log"){
     console.log(obj.log);
   }
+});
+
+socket.addEventListener("error", (event) => {
+  console.log("Websocket error: ", event);
+});
+
+socket.addEventListener("close", (event) => {
+  console.log("Websocket close. Code: ", event.code, ". Reason: \"", event.reason, "\". Clean? ", event.wasClean);
 });
 
 function notNullOrUndefined(val){
@@ -46,7 +55,7 @@ function clear({ctx, w, h}){
 }
 
 function square({ctx}, {x, y, w, h, style}){
-  console.log("square");
+  //console.log(`square: x: ${x}, y: ${y}, w: ${w}, h: ${h}, style: ${style}`);
   ctx.strokeSyle = style;
   ctx.strokeRect(x, y, w, h);
 }
@@ -62,7 +71,9 @@ function animationControls(){
 }
 
 function openNewWindow(name) {
+  const top = window.screenTop;
+  const left = window.screenLeft;
   const url = `http://localhost:8081/html/${name}.html`;
   const qs = new URLSearchParams({channel: channel}).toString();
-  window.open(`${url}?${qs}`, "_blank", "width=600,height=400");
+  window.open(`${url}?${qs}`, "_blank", `top=${top - 50},left=${left + 50},width=600,height=400,status=1,toolbar=1`);
 }

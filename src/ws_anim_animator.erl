@@ -19,9 +19,9 @@ start(Name) ->
     Caller = self(),
     gen_server:start(?MODULE, _Args = {Name, Caller}, _Opts = []).
 
-init({Name, WebSocket}) ->
+init({Name, Channel}) ->
     erlang:send_after(?FRAME_MILLIS, self(), animate),
-    {ok, #state{name = Name, channel = WebSocket}}.
+    {ok, #state{name = Name, channel = Channel}}.
 
 handle_call(_, _From, State) ->
     {reply, ok, State}.
@@ -41,18 +41,23 @@ animate(#state{name = Name,
                frame = Frame}) ->
     erlang:send_after(?FRAME_MILLIS, self(), animate),
 
-    [Channel ! {buffer, draw, square(I, J, Frame, Name)} || {I, J} <- [{0, 2}, {100, -1}, {50, -2}]].
+    %[Channel ! {buffer, draw, square(I, J, Frame, Name)} || {I, J} <- [{0, 2}, {100, -1}, {50, -2}]].
+    [Channel ! {buffer, draw, square(I, J, Frame, Name)} || {I, J} <- [{0, 2}]].
 
-square(I, J, Frame, Name) ->
+square(_I, _J, Frame, Name) ->
+    W = abs(math:sin((Frame / 100))) * 300,
+    H = abs(math:cos((Frame / 100))) * 300,
+    X = abs(math:sin((Frame / 100))) * (800 - W),
+    Y = abs(math:cos((Frame / 100))) * (700 - H),
     Map = #{type => <<"draw">>,
             cmd => <<"square">>,
-            x => I + (Frame * J),
-            y => I + (Frame * J),
-            w => I + Frame,
-            h => I + Frame,
+            x => X,
+            y => Y,
+            w => W,
+            h => H,
             style => <<"black">>,
             name => Name},
-    iolist_to_binary(json:encode(Map)).
+    ws_anim_utils:json(Map).
 
 send_controls(_State) ->
     %% Channel ! {send, control, Json},
