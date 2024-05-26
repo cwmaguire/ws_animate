@@ -24,6 +24,7 @@ function socketOpenListener(channel){
   return (event) => {
     console.log("Opened socket, sending commands");
     socket.send(`channel join ${channel}`);
+    socket.send("channel sub log");
     socket.send("channel sub control");
   }
 }
@@ -61,6 +62,9 @@ function control(Command){
     case "select":
       select(Command);
       break;
+    case "textbox":
+      textbox(Command);
+      break;
     default:
       console.log(`Ignoring command ${cmd}`);
   }
@@ -90,4 +94,25 @@ function select({id, name, label, options}){
 
   document.body.appendChild(l);
   document.body.appendChild(s);
+}
+
+function textbox(textbox){
+  const t = document.createElement("input");
+  t.setAttribute("type", "text");
+  t.id = textbox.id;
+  t.name = textbox.name;
+  t.value = textbox.value;
+  const l = document.createElement('label');
+  l.textContent = textbox.label;
+  l.htmlFor = t.id;
+
+  const command = `animator set ${textbox.animator} ${textbox.field}`;
+  t.addEventListener("change", ({data}) => {send(`${command} ${t.value}`)});
+
+  document.body.appendChild(l);
+  document.body.appendChild(t);
+}
+
+function send(text){
+  socket.send(text);
 }

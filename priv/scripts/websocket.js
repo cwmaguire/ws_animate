@@ -7,6 +7,7 @@ socket.addEventListener("open", (event) => {
   socket.send("Hello Server!");
   socket.send("channel start");
   socket.send("channel sub draw");
+  socket.send("channel sub log");
   socket.send("animator add animator1 a");
 });
 
@@ -75,5 +76,8 @@ function openNewWindow(name) {
   const left = window.screenLeft;
   const url = `http://localhost:8081/html/${name}.html`;
   const qs = new URLSearchParams({channel: channel}).toString();
-  window.open(`${url}?${qs}`, "_blank", `top=${top - 50},left=${left + 50},width=600,height=400,status=1,toolbar=1`);
+  const newWindow = window.open(`${url}?${qs}`, "_blank", `top=${top - 50},left=${left + 50},width=600,height=400,status=1,toolbar=1`);
+  newWindow.addEventListener("load", (event) => {
+    socket.addEventListener("close", (event) => { newWindow.close(); });
+  });
 }

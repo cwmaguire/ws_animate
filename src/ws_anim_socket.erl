@@ -76,6 +76,11 @@ do(<<"channel subs">>, State = #state{channel = Channel}) ->
 do(<<"animator add ", Animator/binary>>, State = #state{channel = Channel}) ->
     Log = ws_anim_channel:add_animator(Channel, Animator),
     {[Log], State};
+do(<<"animator set ", AnimatorFieldValue/binary>>, State = #state{channel = Channel}) ->
+    io:format(user, "AnimatorFieldValue = ~p~n", [AnimatorFieldValue]),
+
+    Log = ws_anim_channel:animator_set_field_value(Channel, AnimatorFieldValue),
+    {[Log], State};
 do(Other, State) ->
     Log = ws_anim_utils:log(<<"Command '", Other/binary, "' not recognized">>),
     {[Log], State}.

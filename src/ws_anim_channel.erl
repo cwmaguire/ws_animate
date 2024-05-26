@@ -6,6 +6,7 @@
 -export([join/1]).
 -export([leave/1]).
 -export([add_animator/2]).
+-export([animator_set_field_value/2]).
 -export([sub/2]).
 -export([subs/1]).
 
@@ -34,6 +35,9 @@ leave(ChannelPid) ->
 add_animator(ChannelPid, Name) ->
     gen_server:call(ChannelPid, {add_animator, Name}).
 
+animator_set_field_value(ChannelPid, AnimatorFieldValue) ->
+    gen_server:call(ChannelPid, {animator_set_field_value, AnimatorFieldValue}).
+
 sub(ChannelPid, Type) ->
     gen_server:call(ChannelPid, {sub, Type}).
 
@@ -53,9 +57,12 @@ handle_call(leave, {From, _}, State = #state{id = Id, sockets = Sockets, subs = 
     NewSubs = lists:filter(Filter, Subs),
     NewSockets = lists:delete(From, Sockets),
     {reply, Log, State#state{sockets = NewSockets, subs = NewSubs}};
-handle_call({add_animator, Name}, _From, State = #state{animators = Animators}) ->
-    {Log, Animator} = add_animator_(Name, State),
-    {reply, Log, State#state{animators = [Animator | Animators]}};
+handle_call({add_animator, Spec}, _From, State = #state{animators = Animators}) ->
+    {Log, Pid, Name} = add_animator_(Spec, State),
+    {reply, Log, State#state{animators = [{Name, Pid} | Animators]}};
+handle_call({animator_set_field_value, AnimatorFieldValue}, _From, State) ->
+    Log = set_animator_field(AnimatorFieldValue, State),
+    {reply, Log, State};
 handle_call({sub, TypeBin}, {From, _}, State = #state{subs = Subs}) ->
     Type = type(TypeBin),
     case {Type, lists:member({From, Type}, Subs)} of
@@ -104,7 +111,7 @@ handle_info(Info, State) ->
 
 %% TODO check for animator with same user-assigned name
 add_animator_(Spec, State) ->
-    case get_animator(Spec) of
+    case decode_animator_add_spec(Spec) of
         {error, Bin} ->
             Error = <<"Invalid animator add command \"", Bin/binary, "\"">>,
             Log = ws_anim_utils:log(Error),
@@ -116,18 +123,44 @@ add_animator_(Spec, State) ->
         {ok, AnimatorModule, Name} ->
             {ok, Pid} = AnimatorModule:start(Name),
             Log = ws_anim_utils:log(<<"Added animator ", Name/binary>>),
-            {Log, Pid}
+            {Log, Pid, Name}
     end.
 
 % Hack
-get_animator(<<"animator1 ", Name/binary>>) when Name /= <<"">> ->
+decode_animator_add_spec(<<"animator1 ", Name/binary>>) when Name /= <<"">> ->
     {ok, ws_anim_animator, Name};
-get_animator(Bin) ->
+decode_animator_add_spec(Bin) ->
     case binary:split(Bin, <<" ">>) of
         [Bin1] ->
             {error, Bin1};
         [Bin1, Bin2] ->
             {error, Bin1, Bin2}
+    end.
+
+set_animator_field(Spec, #state{animators = Animators}) ->
+    io:format(user, "Animators = ~p~n", [Animators]),
+    case decode_animator_set_spec(Spec) of
+        {error, Bin} ->
+            Error = <<"Invalid animator set command \"", Bin/binary, "\"">>,
+            ws_anim_utils:log(Error);
+        {ok, Animator, Field, Value} ->
+            %io:format(user, "Animator = ~p~n", [Animator]),
+            %io:format(user, "Field = ~p~n", [Field]),
+            %io:format(user, "Value = ~p~n", [Value]),
+            set_animator_field(proplists:get_value(Animator, Animators), Field, Value),
+            ws_anim_utils:log(<<"Setting ", Animator/binary, " field ", Field/binary, " to ", Value/binary>>)
+    end.
+
+set_animator_field(Pid, Field, Value) ->
+    io:format(user, "Pid = ~p~n", [Pid]),
+    Pid ! {set, Field, Value}.
+
+decode_animator_set_spec(Spec) ->
+    case binary:split(Spec, <<" ">>, [global]) of
+        [Name, Field, Value] ->
+            {ok, Name, Field, Value};
+        _ ->
+            {error, Spec}
     end.
 
 type(<<"log">>) -> log;
@@ -137,7 +170,7 @@ type(_) -> undefined.
 
 new_sub(control, #state{subs = Subs, animators = Animators}) ->
     send_controls(Subs),
-    [A ! send_controls || A <- Animators];
+    [A ! send_controls || {_Name, A} <- Animators];
 new_sub(_, _) ->
     ok.
 
