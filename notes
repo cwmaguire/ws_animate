@@ -1,4 +1,25 @@
 ┏━━━━━━━━━━━━━━━━┓
+┃   2024-05-25   ┃
+┗━━━━━━━━━━━━━━━━┛
+
+Ah, turns out if JavaScript opens a new window, the new window has a reference
+to the opener.
+
+Websocket is closing "clean" with code 1000 - normal.
+
+┏━━━━━━━━━━━━━━━━┓
+┃   2024-05-25   ┃
+┗━━━━━━━━━━━━━━━━┛
+
+If I'm going to have a background animation, like a changing gradient or
+something, then I'll need to set the Z-index of each draw command. I could
+the draw commands on the server or in the web page. I think I'd prefer
+to do as much logic in Erlang as possible. I'm only using JavaScript at
+all because it's pretty easy to create a canvas and issue drawing commands,
+but I want all the drawing logic to be in Erlang, because JavaScript is
+silly. (And I work with Erlang regularly.)
+
+┏━━━━━━━━━━━━━━━━┓
 ┃   2024-05-21   ┃
 ┗━━━━━━━━━━━━━━━━┛
 
