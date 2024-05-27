@@ -32,14 +32,14 @@ websocket_info(Info, State) ->
     {ok, State}.
 
 do(<<"channel name">>, State = #state{channel = undefined}) ->
-    Log = ws_anim_utils:log(<<"Not joined to channel">>),
-    {[Log], State};
+    Msg = ws_anim_utils:log(<<"Not joined to channel">>),
+    {[Msg], State};
 do(<<"channel name">>, State = #state{channel_name = ChannelName}) ->
     Log = ws_anim_utils:log(<<"Joined to channel ", ChannelName/binary>>),
     {[Log], State};
 do(<<"channel list">>, State) ->
-    Log = ws_anim_channel_registry:list(),
-    {[Log], State};
+    Msg = ws_anim_channel_registry:list(),
+    {[Msg], State};
 do(<<"channel start">>, _State) ->
     {Pid, Name} = ws_anim_channel_registry:start(),
     Info = ws_anim_utils:info(#{channel_name => Name}),
@@ -62,23 +62,25 @@ do(<<"channel leave">>, State = #state{channel = undefined}) ->
     Log = ws_anim_utils:log(<<"Not in a channel">>),
     {[Log], State};
 do(<<"channel leave">>, State = #state{channel = Channel}) ->
-    Log = ws_anim_channel:leave(Channel),
-    {[Log], State#state{channel = undefined}};
+    Msg = ws_anim_channel:leave(Channel),
+    {[Msg], State#state{channel = undefined}};
 do(<<"channel sub ", _/binary>>, State = #state{channel = undefined}) ->
     Log = ws_anim_utils:log(<<"Not in a channel">>),
     {[Log], State};
 do(<<"channel sub ", Type/binary>>, State = #state{channel = Channel}) ->
-    Log = ws_anim_channel:sub(Channel, Type),
-    {[Log], State};
+    Msg = ws_anim_channel:sub(Channel, Type),
+    {[Msg], State};
 do(<<"channel subs">>, State = #state{channel = Channel}) ->
-    Log = ws_anim_channel:subs(Channel),
-    {[Log], State};
+    Msg = ws_anim_channel:subs(Channel),
+    {[Msg], State};
+do(<<"animator list">>, State = #state{channel = Channel}) ->
+    Msg = ws_anim_channel:animator_list(Channel),
+    {[Msg], State};
 do(<<"animator add ", Animator/binary>>, State = #state{channel = Channel}) ->
-    Log = ws_anim_channel:add_animator(Channel, Animator),
-    {[Log], State};
+    Msg = ws_anim_channel:add_animator(Channel, Animator),
+    {[Msg], State};
 do(<<"animator set ", AnimatorFieldValue/binary>>, State = #state{channel = Channel}) ->
     io:format(user, "AnimatorFieldValue = ~p~n", [AnimatorFieldValue]),
-
     Log = ws_anim_channel:animator_set_field_value(Channel, AnimatorFieldValue),
     {[Log], State};
 do(Other, State) ->

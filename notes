@@ -1,4 +1,30 @@
 ┏━━━━━━━━━━━━━━━━┓
+┃   2024-05-27   ┃
+┗━━━━━━━━━━━━━━━━┛
+
+I think I'd like to put an animation chooser on the rendering window: when
+you add an animator you get a button for that animator to open a settings
+window for it. Every time you open a settings window, that window will subscribe
+to controls for that animator.
+
+Hmm, I should probably either subscribe to settings as well, or send out
+settings changes as controls. Seems a little wasteful to clear and re-draw all
+controls when only a setting has changed, but I think it's good to start with
+the assumption that I have unlimited CPU, RAM and NET and never worry about
+optimization because this is a toy.
+
+I could just have buttons for all the animators, until I have so many that I
+can't reasonably contain them on the page.
+
+My original goal was to play with animations, not become a UI designer.
+I find it fun to code up an animation, then take all of the numbers and settings
+that go into the animation and attach them to controls so I can play with them
+in real time.
+
+I'm inspired by Brett Victor's talk "Inventing on Principle"
+https://www.youtube.com/watch?v=EGqwXt90ZqA
+
+┏━━━━━━━━━━━━━━━━┓
 ┃   2024-05-25   ┃
 ┗━━━━━━━━━━━━━━━━┛
 

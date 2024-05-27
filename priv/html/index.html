@@ -2,12 +2,17 @@
 <html lang="en">
 <head>
 <script src="scripts/websocket.js"></script>
+<style>
+  #canvas1 {border: 1px solid black;}
+</style>
 </head>
 <body>
 Main Animation
+<!--<br>-->
+<!--<input type="button" id="animationControlsButton" onclick="animationControls()" value="Animation Controls">-->
 <br>
-<input type="button" id="animationControlsButton" onclick="animationControls()" value="Animation Controls">
-<br>
+<div id="animator_button_div"></div>
+<div id="animator_controls_button_div"></div>
 <canvas id="canvas1" width="800px" height="700px"></canvas>
 </body>
 </html>

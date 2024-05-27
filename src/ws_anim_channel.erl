@@ -5,6 +5,7 @@
 -export([start/1]).
 -export([join/1]).
 -export([leave/1]).
+-export([animator_list/1]).
 -export([add_animator/2]).
 -export([animator_set_field_value/2]).
 -export([sub/2]).
@@ -15,7 +16,7 @@
 -export([handle_cast/2]).
 -export([handle_info/2]).
 
--define(FRAME_MILLIS, 40).
+-define(FRAME_MILLIS, 3000).
 
 -record(state, {id = "no ID set",
                 sockets = [],
@@ -31,6 +32,9 @@ join(ChannelPid) ->
 
 leave(ChannelPid) ->
     gen_server:call(ChannelPid, leave).
+
+animator_list(ChannelPid) ->
+    gen_server:call(ChannelPid, animator_list).
 
 add_animator(ChannelPid, Name) ->
     gen_server:call(ChannelPid, {add_animator, Name}).
@@ -57,9 +61,13 @@ handle_call(leave, {From, _}, State = #state{id = Id, sockets = Sockets, subs = 
     NewSubs = lists:filter(Filter, Subs),
     NewSockets = lists:delete(From, Sockets),
     {reply, Log, State#state{sockets = NewSockets, subs = NewSubs}};
+handle_call(animator_list, _From, State) ->
+    Names = animator_names(),
+    Info = ws_anim_utils:info(#{animators => Names}),
+    {reply, Info, State#state{animators = Names}};
 handle_call({add_animator, Spec}, _From, State = #state{animators = Animators}) ->
-    {Log, Pid, Name} = add_animator_(Spec, State),
-    {reply, Log, State#state{animators = [{Name, Pid} | Animators]}};
+    {Info, Pid, Name} = add_animator_(Spec, State),
+    {reply, Info, State#state{animators = [{Name, Pid} | Animators]}};
 handle_call({animator_set_field_value, AnimatorFieldValue}, _From, State) ->
     Log = set_animator_field(AnimatorFieldValue, State),
     {reply, Log, State};
@@ -122,8 +130,8 @@ add_animator_(Spec, State) ->
             {Log, State};
         {ok, AnimatorModule, Name} ->
             {ok, Pid} = AnimatorModule:start(Name),
-            Log = ws_anim_utils:log(<<"Added animator ", Name/binary>>),
-            {Log, Pid, Name}
+            Info = ws_anim_utils:info(#{animator_name => Name}),
+            {Info, Pid, Name}
     end.
 
 % Hack
@@ -163,9 +171,13 @@ decode_animator_set_spec(Spec) ->
             {error, Spec}
     end.
 
+animator_names() ->
+    [<<"animator1">>].
+
 type(<<"log">>) -> log;
 type(<<"draw">>) -> draw;
 type(<<"control">>) -> control;
+type(<<"info">>) -> info;
 type(_) -> undefined.
 
 new_sub(control, #state{subs = Subs, animators = Animators}) ->

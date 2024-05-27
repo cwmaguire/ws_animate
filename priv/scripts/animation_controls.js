@@ -2,14 +2,14 @@
 
 // Create WebSocket connection.
 var socket;
-var channel = getQueryStringChannel();
+var {channel, animator} = qsParams();
 setup_websocket(channel);
-window.opener.console.log("Message from controls window");
+window.opener.console.log(`Channel: >${channel}<, animator: >${animator}<`);
 
-function getQueryStringChannel() {
+function qsParams() {
     // window.location.search: Sets or returns the querystring part of a URL
     const params = new URLSearchParams(window.location.search);
-    return params.get('channel');
+    return {channel: params.get('channel'), animator: params.get('animator')};
 }
 
 function setup_websocket(channel){
@@ -32,7 +32,7 @@ function socketOpenListener(channel){
 function socketMessage(event){
   log(event.data);
   obj = JSON.parse(event.data);
-  if(obj.type == "control"){
+  if(obj.type == "control" && obj.animator == animator){
     control(obj);
   }
 }
