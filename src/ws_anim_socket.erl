@@ -9,7 +9,7 @@
                 channel_name = undefined}).
 
 init(Req, _) ->
-    {cowboy_websocket, Req, []}.
+    {cowboy_websocket, Req, [], #{idle_timeout => infinity}}.
 
 websocket_init(_InitState) ->
     Log = ws_anim_utils:log(<<"Connected">>),
