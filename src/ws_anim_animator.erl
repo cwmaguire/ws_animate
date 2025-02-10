@@ -93,6 +93,15 @@ set(<<"width">>, Value, State) ->
           State#state.channel ! {send, log, ws_anim_utils:log(<<"Invalid integer ", Value/binary, " for width">>)},
           State
   end;
+set(<<"height">>, Value, State) ->
+  case catch binary_to_integer(Value) of
+      I when is_integer(I) ->
+          io:format(user, "I = ~p~n", [I]),
+          State#state{height = I};
+      _ ->
+          State#state.channel ! {send, log, ws_anim_utils:log(<<"Invalid integer ", Value/binary, " for height">>)},
+          State
+  end;
 set(Field, _Value, State) ->
     State#state.channel ! {send, log, ws_anim_utils:log(<<"Unrecognized field: ", Field/binary>>)},
     State.
