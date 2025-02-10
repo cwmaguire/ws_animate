@@ -3,6 +3,11 @@ ws_animator
 
 An Erlang web server for animating in JS over a web socket.
 
+![ERD Diagram](doc/ws_animate_erd_2025-02-10.drawio.png "ERD")
+![Example Setups Diagram](doc/ws_animate_erd_examples_2025-02-10.drawio.png "ERD")
+![Protocol](doc/ws_animate_protocol_2025-02-10.drawio.png "ERD")
+![Sequence Diagram](doc/ws_animate_sequence_2025-02-09.drawio.png "ERD")
+
 ```mermaid
 flowchart TD
     W1[Websocket 1] & W2[Websocket 2] & W3[Websocket 3] <--> |Chan 1| CB[Cowboy]
