@@ -14,8 +14,8 @@ Example Setups
 
 Protocol
 -----
-1. The websocket sends commands to our socket process (not shown) and, necessary, and if one exists, forwards them to the channel.
-1. Channel forwards animation commands to the animator.
+1. The websocket sends commands to our socket process (not shown) and, if necessary, and if one exists, forwards them to the channel.
+1. Channel forwards animation commands to the Animator.
 1. Animator animates
 1. Animator sends log messages and web controls to Channel
 1. Animator sends draw calls to Channel buffer
