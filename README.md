@@ -1,26 +1,28 @@
 ws_animator
 =====
-
 An Erlang web server for animating in JS over a web socket.
 
+Overview
+-----
+Web sockets connect to the Cowboy web server; Cowboy starts up our process to handle messages from the socket; our socket can connect to a "channel", which communicates with animator processes. Each socket can have one channel, but multiple sockets can have the same channel; each animator has one channel, but a channel can have multiple animators.
+
 ![ERD Diagram](doc/ws_animate_erd_2025-02-10.drawio.png "ERD")
+
+Example Setups
+----
 ![Example Setups Diagram](doc/ws_animate_erd_examples_2025-02-10.drawio.png "Example Setups")
+
+Protocol
+-----
+1. The websocket sends commands to our socket process (not shown).
+1. Our socket process forwards them to the channel.
+1. Channel forwards animation commands to the animator.
+1. Animator animates
+1. Animator sends log messages and web controls to Channel
+1. Animator sends draw calls to Channel buffer
+1. Channel sends buffered draw calls to websocket
+ 
 ![Protocol](doc/ws_animate_protocol_2025-02-10.drawio.png "Protocol")
-![Sequence Diagram](doc/ws_animate_sequence_2025-02-09.drawio.png "Sequence Diagram")
-
-```mermaid
-flowchart TD
-    W1[Websocket 1] & W2[Websocket 2] & W3[Websocket 3] <--> |Chan 1| CB[Cowboy]
-    CB --- S1[Socket 1] & S2[Socket 2] & S3[Socket 3] --- Chan[Channel1]
-    Chan --- Anim1[Animator 1] & Anim2[Animator 2]
-    W3 -.-> |Sub draw| Chan
-
-%% The ampersand just keeps you from having to repeat lines:
-%% A --> B
-%% A --> C
-%% vs
-%% A --> B & C
-````
 
 Build
 -----
@@ -37,3 +39,8 @@ Run
   - goes to index.html
   - webpage should open websocket automatically
   - look in dev console
+
+Sequence Diagram
+-----
+![Sequence Diagram](doc/ws_animate_sequence_2025-02-09.drawio.png
+"Sequence Diagram")
