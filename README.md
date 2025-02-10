@@ -14,12 +14,12 @@ Example Setups
 
 Protocol
 -----
-1. The websocket sends commands to our socket process (not shown).
-1. Our socket process forwards them to the channel.
+1. The websocket sends commands to our socket process (not shown) and, necessary, and if one exists, forwards them to the channel.
 1. Channel forwards animation commands to the animator.
 1. Animator animates
 1. Animator sends log messages and web controls to Channel
 1. Animator sends draw calls to Channel buffer
+2. Channel sends messages (e.g. log, info) to the websocket
 1. Channel sends buffered draw calls to websocket
  
 ![Protocol](doc/ws_animate_protocol_2025-02-10.drawio.png "Protocol")
@@ -42,5 +42,4 @@ Run
 
 Sequence Diagram
 -----
-![Sequence Diagram](doc/ws_animate_sequence_2025-02-09.drawio.png
-"Sequence Diagram")
+![Sequence Diagram](doc/ws_animate_sequence_2025-02-09.drawio.png "Sequence Diagram")
