@@ -135,8 +135,10 @@ add_animator_(Spec, State) ->
     end.
 
 % Hack
-decode_animator_add_spec(<<"animator1 ", Name/binary>>) when Name /= <<"">> ->
-    {ok, ws_anim_animator, Name};
+decode_animator_add_spec(<<"squares ", Name/binary>>) when Name /= <<"">> ->
+    {ok, ws_anim_animate_squares, Name};
+decode_animator_add_spec(<<"circles ", Name/binary>>) when Name /= <<"">> ->
+    {ok, ws_anim_animate_circles, Name};
 decode_animator_add_spec(Bin) ->
     case binary:split(Bin, <<" ">>) of
         [Bin1] ->
@@ -172,7 +174,7 @@ decode_animator_set_spec(Spec) ->
     end.
 
 animator_names() ->
-    [<<"animator1">>].
+    [<<"squares">>, <<"circles">>].
 
 type(<<"log">>) -> log;
 type(<<"draw">>) -> draw;

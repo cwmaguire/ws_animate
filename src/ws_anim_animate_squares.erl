@@ -1,4 +1,4 @@
--module(ws_anim_animator).
+-module(ws_anim_animate_squares).
 
 -behaviour(gen_server).
 
@@ -102,6 +102,8 @@ set(<<"height">>, Value, State) ->
           State#state.channel ! {send, log, ws_anim_utils:log(<<"Invalid integer ", Value/binary, " for height">>)},
           State
   end;
+set(<<"style">>, Value, State) ->
+    State#state{style = Value};
 set(Field, _Value, State) ->
     State#state.channel ! {send, log, ws_anim_utils:log(<<"Unrecognized field: ", Field/binary>>)},
     State.
