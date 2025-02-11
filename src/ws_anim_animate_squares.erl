@@ -9,7 +9,7 @@
 -export([handle_cast/2]).
 -export([handle_info/2]).
 
--define(FRAME_MILLIS, 3000).
+-define(FRAME_MILLIS, 1000).
 
 -record(state, {name,
                 channel = undefined,

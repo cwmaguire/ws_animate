@@ -80,6 +80,9 @@ function draw(Command){
     case "square":
       square(c, Command);
       break;
+    case "circle":
+      circle(c, Command);
+      break;
     default:
       console.log(`Ignoring command ${cmd}`);
   }
@@ -93,6 +96,16 @@ function square({ctx}, {x, y, w, h, style}){
   //console.log(`square: x: ${x}, y: ${y}, w: ${w}, h: ${h}, style: ${style}`);
   ctx.strokeSyle = style;
   ctx.strokeRect(x, y, w, h);
+}
+
+function circle({ctx}, {x, y, r, style}){
+  //console.log(`square: x: ${x}, y: ${y}, w: ${w}, h: ${h}, style: ${style}`);
+  ctx.strokeSyle = style;
+  ctx.moveTo(x, y);
+  ctx.beginPath();
+  ctx.ellipse(x, y, r, r, 0, 0, 2 * Math.PI);
+  ctx.closePath();
+  ctx.stroke();
 }
 
 function ctx(){
