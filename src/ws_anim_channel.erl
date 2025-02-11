@@ -16,13 +16,14 @@
 -export([handle_cast/2]).
 -export([handle_info/2]).
 
--define(FRAME_MILLIS, 1000).
+-define(FRAME_MILLIS, 110).
 
 -record(state, {id = "no ID set",
                 sockets = [],
                 animators = [],
                 subs = [],
-                buffer = []}).
+                buffer = [],
+                ets_id}).
 
 start(Id) ->
     gen_server:start(?MODULE, _Args = Id, _Opts = []).
@@ -49,8 +50,9 @@ subs(ChannelPid) ->
     gen_server:call(ChannelPid, subs).
 
 init(Id) ->
+    TableId = ets:new(undefined, [ordered_set]),
     erlang:send_after(?FRAME_MILLIS, self(), send_buffer),
-    {ok, #state{id = Id}}.
+    {ok, #state{id = Id, ets_id = TableId}}.
 
 handle_call(join, {From, _}, State = #state{id = Id, sockets = Sockets, subs = Subs}) ->
     Log = ws_anim_utils:log(<<"Joined ", Id/binary>>),
@@ -104,13 +106,13 @@ handle_cast(_, State) ->
 handle_info({send, Type, Text}, State = #state{subs = Subs}) ->
     [Socket ! {send, Text} || {Socket, Type_} <- Subs, Type_ == Type],
     {noreply, State};
-handle_info({buffer, Type, Bin}, State = #state{buffer = Buffer}) ->
-    {noreply, State#state{buffer = [{Type, Bin} | Buffer]}};
-handle_info(send_buffer, State = #state{subs = Subs, buffer = Buffer}) ->
-    %io:format("Send buffer~n"),
-    [Socket ! {send, Bin} || {Socket, SubType} <- Subs,
-                             {MessageType, Bin} <- [{draw, draw_clear_json()} | Buffer],
-                             SubType == MessageType],
+handle_info({buffer, _Type, DrawObject}, State = #state{ets_id = EtsId}) ->
+    ets:insert(EtsId, DrawObject),
+    {noreply, State};
+handle_info(send_buffer, State = #state{subs = Subs, ets_id = EtsId}) ->
+    DrawCalls = ets:tab2list(EtsId),
+    [Socket ! {send, Bin} || {Socket, draw} <- Subs,
+                             {_Id, Bin} <- [{0, draw_clear_json()} | DrawCalls]],
     erlang:send_after(?FRAME_MILLIS, self(), send_buffer),
     {noreply, State#state{buffer = []}};
 handle_info(Info, State) ->
@@ -139,6 +141,8 @@ decode_animator_add_spec(<<"squares ", Name/binary>>) when Name /= <<"">> ->
     {ok, ws_anim_animate_squares, Name};
 decode_animator_add_spec(<<"circles ", Name/binary>>) when Name /= <<"">> ->
     {ok, ws_anim_animate_circles, Name};
+decode_animator_add_spec(<<"circles2 ", Name/binary>>) when Name /= <<"">> ->
+    {ok, ws_anim_animate_circles2, Name};
 decode_animator_add_spec(Bin) ->
     case binary:split(Bin, <<" ">>) of
         [Bin1] ->

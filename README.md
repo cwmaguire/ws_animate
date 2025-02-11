@@ -1,10 +1,10 @@
 ws_animator - a hobby project
 =====
 **Warning**: I'm a backend developer with no experience in, or talent for, graphics. This is just so I can toy away with different procedural animation ideas, and builds on my previous projects, combining JavaScript canvas drawing with Erlang concurrency, and Cowboy web server websockets:
-- (Snake game)[https://github.com/cwmaguire/snake_game]
-- (JS Doodle)[https://github.com/cwmaguire/js_doodle]
-- (Animation)[https://github.com/cwmaguire/animation]
-- (Bezier)[https://github.com/cwmaguire/bezier]
+- [Snake game](https://github.com/cwmaguire/snake_game)
+- [JS Doodle](https://github.com/cwmaguire/js_doodle)
+- [Animation](https://github.com/cwmaguire/animation)
+- [Bezier](https://github.com/cwmaguire/bezier)
 
 Overview & Purpose
 -----

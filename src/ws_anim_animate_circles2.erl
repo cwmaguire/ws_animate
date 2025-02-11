@@ -1,4 +1,4 @@
--module(ws_anim_animate_squares).
+-module(ws_anim_animate_circles2).
 
 -behaviour(gen_server).
 
@@ -9,13 +9,12 @@
 -export([handle_cast/2]).
 -export([handle_info/2]).
 
--define(FRAME_MILLIS, 1000).
+-define(FRAME_MILLIS, 100).
 
 -record(state, {name,
                 channel = undefined,
                 frame = 1,
-                width = 300,
-                height = 300,
+                radius = 300,
                 style = <<"black">>}).
 
 start(Name) ->
@@ -36,8 +35,6 @@ handle_info(animate, State = #state{frame = Frame}) ->
     animate(State),
     {noreply, State#state{frame = Frame + 1}};
 handle_info({set, Field, Value}, State) ->
-    %io:format(user, "Value = ~p~n", [Value]),
-    %io:format(user, "Field = ~p~n", [Field]),
     {noreply, set(Field, Value, State)};
 handle_info(send_controls, State = #state{}) ->
     send_controls(State),
@@ -48,27 +45,24 @@ animate(State = #state{name = Name,
                        frame = Frame}) ->
     erlang:send_after(?FRAME_MILLIS, self(), animate),
     Id = {self(), 1},
-    Square = square(State, Frame, Name),
-    Channel ! {buffer, draw, {Id, Square}}.
+    Circle = circle(State, Frame, Name),
+    Channel ! {buffer, draw, {Id, Circle}}.
 
-square(State, Frame, Name) ->
-    W = trunc(abs(math:sin((Frame / 100))) * State#state.width),
-    H = trunc(abs(math:cos((Frame / 100))) * State#state.height),
-    X = trunc(abs(math:sin((Frame / 100))) * (800 - W)),
-    Y = trunc(abs(math:cos((Frame / 100))) * (700 - H)),
+circle(State, Frame, Name) ->
+    R = trunc(abs(math:cos((Frame / 100))) * State#state.radius),
+    X = trunc(abs(math:sin((Frame / 100))) * (800 - R)),
+    Y = trunc(abs(math:cos((Frame / 100))) * (700 - R)),
     Map = #{type => <<"draw">>,
-            cmd => <<"square">>,
+            cmd => <<"circle">>,
             x => X,
             y => Y,
-            w => W,
-            h => H,
+            r => R,
             style => State#state.style,
             name => Name},
     ws_anim_utils:json(Map).
 
 send_controls(State = #state{name = Name, channel = Channel}) ->
-    Channel ! {send, control, textbox(Name, <<"width">>, State#state.width)},
-    Channel ! {send, control, textbox(Name, <<"height">>, State#state.height)},
+    Channel ! {send, control, textbox(Name, <<"radius">>, State#state.radius)},
     Channel ! {send, control, textbox(Name, <<"style">>, State#state.style)},
     ok.
 
@@ -84,22 +78,13 @@ textbox(AnimatorName, Field, Value) ->
                 label => <<AnimatorName/binary, " ", Field/binary>>},
     ws_anim_utils:json(Textbox).
 
-set(<<"width">>, Value, State) ->
+set(<<"radius">>, Value, State) ->
   case catch binary_to_integer(Value) of
       I when is_integer(I) ->
           io:format(user, "I = ~p~n", [I]),
-          State#state{width = I};
+          State#state{radius = I};
       _ ->
-          State#state.channel ! {send, log, ws_anim_utils:log(<<"Invalid integer ", Value/binary, " for width">>)},
-          State
-  end;
-set(<<"height">>, Value, State) ->
-  case catch binary_to_integer(Value) of
-      I when is_integer(I) ->
-          io:format(user, "I = ~p~n", [I]),
-          State#state{height = I};
-      _ ->
-          State#state.channel ! {send, log, ws_anim_utils:log(<<"Invalid integer ", Value/binary, " for height">>)},
+          State#state.channel ! {send, log, ws_anim_utils:log(<<"Invalid integer ", Value/binary, " for radius">>)},
           State
   end;
 set(<<"style">>, Value, State) ->
@@ -107,3 +92,5 @@ set(<<"style">>, Value, State) ->
 set(Field, _Value, State) ->
     State#state.channel ! {send, log, ws_anim_utils:log(<<"Unrecognized field: ", Field/binary>>)},
     State.
+
+

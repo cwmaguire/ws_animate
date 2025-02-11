@@ -12,18 +12,19 @@ socket.addEventListener("open", (event) => {
   //socket.send("animator add animator1 a");
 });
 
-// Listen for messages
 socket.addEventListener("message", (event) => {
-  console.log(`Event: ${event.data}`);
   obj = JSON.parse(event.data);
   if(obj.type == "draw"){
+    //console.log('draw');
     draw(obj);
-  }else if(obj.type == "info" && Object.hasOwn(obj, "channel_name")){
+  }else if(obj.type == "info" && "channel_name" in obj){
+    console.log(`channel name info: ${event.data}`);
     channel = obj.channel_name;
-  }else if(obj.type == "info" && Object.hasOwn(obj, "animators")){
-    console.log(`Found animators ${obj.animators.join(',')}`)
+  }else if(obj.type == "info" && "animators" in obj){
+    console.log(`animators info: ${event.data}`)
     animator_buttons(obj.animators);
-  }else if(obj.type == "info" && Object.hasOwn(obj, "animator_name")){
+  }else if(obj.type == "info" && "animator_name" in obj){
+    console.log(`animator_name info: ${event.data}`)
     animator_server_button(obj.animator_name);
   }else if(obj.type == "log"){
     console.log(obj.log);
