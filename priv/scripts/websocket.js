@@ -75,6 +75,7 @@ function animator_server_button(name){
 
 function draw(Command){
   const {cmd} = Command;
+  //console.log(cmd);
   c = ctx();
   switch(cmd){
     case "clear":
@@ -82,6 +83,9 @@ function draw(Command){
       break;
     case "square":
       square(c, Command);
+      break;
+    case "square_filled":
+      square_filled(c, Command);
       break;
     case "circle":
       circle(c, Command);
@@ -102,6 +106,16 @@ function square({ctx}, {x, y, w, h, style}){
   //console.log(`square: x: ${x}, y: ${y}, w: ${w}, h: ${h}, style: ${style}`);
   ctx.strokeSyle = style;
   ctx.strokeRect(x, y, w, h);
+}
+
+function square_filled({ctx}, Command){
+  var {x, y, w, h, style : {gx1, gy1, gx2, gy2, stop1: {stop: s1, color: c1}, stop2: {stop: s2, color: c2}}} = Command;
+  console.dir(Command);
+  var gradient = ctx.createLinearGradient(gx1, gy1, gx2, gy2);
+  gradient.addColorStop(s1, c1);
+  gradient.addColorStop(s2, c2);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(x, y, w, h);
 }
 
 function circle({ctx}, {x, y, r, style}){

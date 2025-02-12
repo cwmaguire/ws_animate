@@ -144,6 +144,8 @@ decode_animator_add_spec(<<"circles ", Name/binary>>) when Name /= <<"">> ->
     {ok, ws_anim_animate_circles, Name};
 decode_animator_add_spec(<<"circles2 ", Name/binary>>) when Name /= <<"">> ->
     {ok, ws_anim_animate_circles2, Name};
+decode_animator_add_spec(<<"gradient ", Name/binary>>) when Name /= <<"">> ->
+    {ok, ws_anim_animate_gradient, Name};
 decode_animator_add_spec(Bin) ->
     case binary:split(Bin, <<" ">>) of
         [Bin1] ->
@@ -179,7 +181,10 @@ decode_animator_set_spec(Spec) ->
     end.
 
 animator_names() ->
-    [<<"squares">>, <<"circles">>, <<"circles2">>].
+    [<<"squares">>,
+     <<"circles">>,
+     <<"circles2">>,
+     <<"gradient">>].
 
 type(<<"log">>) -> log;
 type(<<"draw">>) -> draw;
