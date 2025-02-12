@@ -1,5 +1,7 @@
+"use strict";
 // Create WebSocket connection.
 const socket = new WebSocket("ws://localhost:8081/ws");
+var c;
 var channel;
 var animatorIndex = 1;
 
@@ -13,7 +15,7 @@ socket.addEventListener("open", (event) => {
 });
 
 socket.addEventListener("message", (event) => {
-  obj = JSON.parse(event.data);
+  let obj = JSON.parse(event.data);
   if(obj.type == "draw"){
     //console.log('draw');
     draw(obj);
@@ -84,6 +86,9 @@ function draw(Command){
     case "circle":
       circle(c, Command);
       break;
+    case "line":
+      line(c, Command);
+      break;
     default:
       console.log(`Ignoring command ${cmd}`);
   }
@@ -102,10 +107,16 @@ function square({ctx}, {x, y, w, h, style}){
 function circle({ctx}, {x, y, r, style}){
   //console.log(`square: x: ${x}, y: ${y}, w: ${w}, h: ${h}, style: ${style}`);
   ctx.strokeSyle = style;
-  ctx.moveTo(x, y);
   ctx.beginPath();
   ctx.ellipse(x, y, r, r, 0, 0, 2 * Math.PI);
-  ctx.closePath();
+  ctx.stroke();
+}
+
+function line({ctx}, {x1, y1, x2, y2}){
+  ctx.strokStyle = 'black';
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
   ctx.stroke();
 }
 
