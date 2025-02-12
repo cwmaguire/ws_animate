@@ -46,7 +46,7 @@ animate(State = #state{name = Name,
     erlang:send_after(?FRAME_MILLIS, self(), animate),
     Id = {self(), 1},
     Circle = circle(State, Frame, Name),
-    Channel ! {buffer, draw, {Id, Circle}}.
+    Channel ! {buffer, {Id, Circle}}.
 
 circle(State, Frame, Name) ->
     R = trunc(abs(math:cos((Frame / 100))) * State#state.radius),

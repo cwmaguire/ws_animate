@@ -16,7 +16,7 @@
 -export([handle_cast/2]).
 -export([handle_info/2]).
 
--define(FRAME_MILLIS, 110).
+-define(FRAME_MILLIS, 100).
 
 -record(state, {id = "no ID set",
                 sockets = [],
@@ -106,13 +106,14 @@ handle_cast(_, State) ->
 handle_info({send, Type, Text}, State = #state{subs = Subs}) ->
     [Socket ! {send, Text} || {Socket, Type_} <- Subs, Type_ == Type],
     {noreply, State};
-handle_info({buffer, _Type, DrawObject}, State = #state{ets_id = EtsId}) ->
+handle_info({buffer, DrawObject}, State = #state{ets_id = EtsId}) ->
     ets:insert(EtsId, DrawObject),
     {noreply, State};
 handle_info(send_buffer, State = #state{subs = Subs, ets_id = EtsId}) ->
     DrawCalls = ets:tab2list(EtsId),
-    [Socket ! {send, Bin} || {Socket, draw} <- Subs,
-                             {_Id, Bin} <- [{0, draw_clear_json()} | DrawCalls]],
+    %io:format(user, "DrawCalls = ~p~n", [DrawCalls]),
+    [Socket ! {send, Json} || {Socket, draw} <- Subs,
+                             {_Id, Json} <- [{0, draw_clear_json()} | DrawCalls]],
     erlang:send_after(?FRAME_MILLIS, self(), send_buffer),
     {noreply, State#state{buffer = []}};
 handle_info(Info, State) ->
@@ -178,7 +179,7 @@ decode_animator_set_spec(Spec) ->
     end.
 
 animator_names() ->
-    [<<"squares">>, <<"circles">>].
+    [<<"squares">>, <<"circles">>, <<"circles2">>].
 
 type(<<"log">>) -> log;
 type(<<"draw">>) -> draw;

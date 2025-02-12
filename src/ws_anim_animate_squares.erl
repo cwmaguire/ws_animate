@@ -49,7 +49,7 @@ animate(State = #state{name = Name,
     erlang:send_after(?FRAME_MILLIS, self(), animate),
     Id = {self(), 1},
     Square = square(State, Frame, Name),
-    Channel ! {buffer, draw, {Id, Square}}.
+    Channel ! {buffer, {Id, Square}}.
 
 square(State, Frame, Name) ->
     W = trunc(abs(math:sin((Frame / 100))) * State#state.width),
