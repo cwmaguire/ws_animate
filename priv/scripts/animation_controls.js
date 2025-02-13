@@ -23,6 +23,7 @@ function setup_websocket(channel){
 function socketOpenListener(channel){
   return (event) => {
     console.log("Opened socket, sending commands");
+    stop_button();
     socket.send(`channel join ${channel}`);
     socket.send("channel sub log");
     socket.send("channel sub control");
@@ -46,9 +47,22 @@ function socketClose(event){
 }
 
 function log(str){
-  const d = document.createElement("div");
-  d.innerText = str;
-  document.body.appendChild(d);
+  //const d = document.createElement("div");
+  //d.innerText = str;
+  //document.body.appendChild(d);
+  console.log(str);
+}
+
+function stop_button(){
+  const button = document.createElement("input");
+  button.type = "button";
+  button.id = `${animator}_stop`;
+  button.value = 'Stop';
+  const command = `animator stop ${animator}`;
+  button.addEventListener("click", ({data}) => {send(`${command}`)});
+  const br = document.createElement('br');
+  document.body.appendChild(button);
+  document.body.appendChild(br);
 }
 
 function control(Command){
@@ -88,12 +102,17 @@ function select({id, name, label, options}){
     s.appendChild(o);
   });
 
+  // TODO handle select event
+
   const l = document.createElement('label');
   l.textContent = label;
   l.htmlFor = id;
 
+  const br = document.createElement('br');
+
   document.body.appendChild(l);
   document.body.appendChild(s);
+  document.body.appendChild(br);
 }
 
 function textbox(textbox){
@@ -109,8 +128,11 @@ function textbox(textbox){
   const command = `animator set ${textbox.animator} ${textbox.field}`;
   t.addEventListener("change", ({data}) => {send(`${command} ${t.value}`)});
 
+  const br = document.createElement('br');
+
   document.body.appendChild(l);
   document.body.appendChild(t);
+  document.body.appendChild(br);
 }
 
 function send(text){
