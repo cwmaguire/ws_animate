@@ -127,6 +127,7 @@ handle_info(send_buffer, State = #state{subs = Subs, ets_id = EtsId}) ->
     [Socket ! {send, Json} || {Socket, draw} <- Subs,
                              {_Id, Json} <- Commands],
     erlang:send_after(?FRAME_MILLIS, self(), send_buffer),
+    ets:delete_all_objects(EtsId),
     {noreply, State#state{buffer = []}};
 handle_info(Info, State) ->
     io:format("Received erlang message: ~n~p~n", [Info]),
