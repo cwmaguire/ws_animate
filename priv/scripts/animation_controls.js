@@ -24,6 +24,7 @@ function socketOpenListener(channel){
   return (event) => {
     console.log("Opened socket, sending commands");
     stop_button();
+    start_button();
     timing_label();
     socket.send(`channel join ${channel}`);
     //socket.send("channel sub log");
@@ -66,6 +67,18 @@ function stop_button(){
   button.id = `${animator}_stop`;
   button.value = 'Stop';
   const command = `animator stop ${animator}`;
+  button.addEventListener("click", ({data}) => {send(`${command}`)});
+  const br = document.createElement('br');
+  document.body.appendChild(button);
+  document.body.appendChild(br);
+}
+
+function start_button(){
+  const button = document.createElement("input");
+  button.type = "button";
+  button.id = `${animator}_start`;
+  button.value = 'Start';
+  const command = `animator start ${animator}`;
   button.addEventListener("click", ({data}) => {send(`${command}`)});
   const br = document.createElement('br');
   document.body.appendChild(button);
