@@ -47,7 +47,7 @@ animate(State = #state{name = Name,
                        channel = Channel,
                        frame = Frame}) ->
     erlang:send_after(?FRAME_MILLIS, self(), animate),
-    Id = {self(), 1},
+    Id = {_ZIndex = 100, self(), 1},
     Square = square(State, Frame, Name),
     Channel ! {buffer, {Id, Square}}.
 

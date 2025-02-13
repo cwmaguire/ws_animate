@@ -67,7 +67,8 @@ animate(State = #state{name = Name,
     State#state{last_x_y = {X2, Y2}}.
 
 id(X) ->
-    {self(), X}.
+    ZIndex = 100,
+    {ZIndex, self(), X}.
 
 send(Channel, BufferObject) ->
     Channel ! {buffer, BufferObject}.
