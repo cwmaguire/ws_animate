@@ -15,7 +15,10 @@
                 channel = undefined,
                 frame = 1,
                 width = 800,
-                height = 700}).
+                height = 700,
+                window_secs = 1 :: integer(),
+                prev_time :: integer(),
+                times = []}).
 
 start(Name) ->
     Caller = self(),
@@ -23,7 +26,10 @@ start(Name) ->
 
 init({Name, Channel}) ->
     erlang:send_after(?FRAME_MILLIS, self(), animate),
-    {ok, #state{name = Name, channel = Channel}}.
+    CurrentTime = erlang:monotonic_time(millisecond),
+    {ok, #state{name = Name,
+                channel = Channel,
+                prev_time = CurrentTime}}.
 
 handle_call(_, _From, State) ->
     {reply, ok, State}.
@@ -32,8 +38,8 @@ handle_cast(_, State) ->
     {noreply, State}.
 
 handle_info(animate, State = #state{frame = Frame}) ->
-    animate(State),
-    {noreply, State#state{frame = Frame + 1}};
+    State1 = animate(State),
+    {noreply, State1#state{frame = Frame + 1}};
 handle_info({set, Field, Value}, State) ->
     {noreply, set(Field, Value, State)};
 handle_info(send_controls, State = #state{}) ->
@@ -49,7 +55,33 @@ animate(State = #state{name = Name,
     ZIndex = 0,
     Id = {ZIndex, self(), 1},
     Square = square(State, Frame, Name),
-    Channel ! {buffer, {Id, Square}}.
+    Channel ! {buffer, {Id, Square}},
+
+    {State1, TimingInfo} = avg_frame_time(State),
+    Channel ! {send, info, TimingInfo},
+    State1.
+
+avg_frame_time(State = #state{window_secs = WindowSeconds,
+                              prev_time = PrevTime,
+                              times = PrevTimes,
+                              name = Name}) ->
+    CurrentTime = erlang:monotonic_time(millisecond),
+    CurrentDiff = CurrentTime - PrevTime,
+
+    MinimumTime = CurrentTime - (WindowSeconds * 1000),
+
+    NewTimes = [{CurrentTime, CurrentDiff} | PrevTimes],
+    CurrentTimes = [TD || TD = {T, _} <- NewTimes, T > MinimumTime],
+
+    Diffs = [D || {_, D} <- CurrentTimes],
+    DiffTotal = lists:foldl(fun erlang:'+'/2, 0, Diffs),
+    AvgTime =  abs(DiffTotal / length(CurrentTimes)),
+    AvgTimeBin = float_to_binary(AvgTime, [{decimals, 3}]),
+
+    State1 = State#state{prev_time = CurrentTime,
+                         times = CurrentTimes},
+    TimingInfo = ws_anim_utils:info(#{animator => Name, avg_frame_time => AvgTimeBin}),
+    {State1, TimingInfo}.
 
 % 5 seconds per side
 square(#state{width = W, height = H}, Frame, Name) ->

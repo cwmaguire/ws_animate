@@ -35,7 +35,7 @@
 
 -record(state, {id = "no ID set",
                 sockets = [],
-                animators = [],
+                animators = #{},
                 subs = [],
                 buffer = [],
                 ets_id}).
@@ -83,10 +83,10 @@ handle_call(leave, {From, _}, State = #state{id = Id, sockets = Sockets, subs = 
     {reply, Log, State#state{sockets = NewSockets, subs = NewSubs}};
 handle_call(animator_list, _From, State) ->
     Info = ws_anim_utils:info(#{animators => ?ANIMATOR_NAMES}),
-    {reply, Info, State#state{animators = ?ANIMATOR_NAMES}};
+    {reply, Info, State};
 handle_call({add_animator, Spec}, _From, State = #state{animators = Animators}) ->
     {Info, Pid, Name} = add_animator_(Spec, State),
-    {reply, Info, State#state{animators = [{Name, Pid} | Animators]}};
+    {reply, Info, State#state{animators = Animators#{Name => Pid}}};
 handle_call({animator_set_field_value, AnimatorFieldValue}, _From, State) ->
     Log = set_animator_field(AnimatorFieldValue, State),
     {reply, Log, State};
@@ -210,7 +210,7 @@ type(_) -> undefined.
 
 new_sub(control, #state{subs = Subs, animators = Animators}) ->
     send_controls(Subs),
-    [A ! send_controls || {_Name, A} <- Animators];
+    [A ! send_controls || A <- maps:values(Animators)];
 new_sub(_, _) ->
     ok.
 
@@ -222,6 +222,7 @@ send_controls(Subs) ->
                label => <<"Create Animator">>,
                options => [#{value => <<"squares">>,
                              text => <<"Squares">>}]},
+    %% XXX I don't think this is being used
     SelectJson = json(Select),
     ClearControlsJson = control_clear_json(),
 

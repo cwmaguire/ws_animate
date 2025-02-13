@@ -47,12 +47,16 @@ handle_info(send_controls, State = #state{}) ->
     send_controls(State),
     {noreply, State}.
 
-animate(State = #state{channel = Channel}) ->
+animate(State = #state{channel = Channel, name = Name}) ->
     erlang:send_after(?FRAME_MILLIS, self(), animate),
     ZIndex = 100,
     Id = {ZIndex, self(), 1},
-    {State1, FrameInfo} = frame_info(State),
+    {State1, FrameInfo, AvgTime} = frame_info(State),
     Channel ! {buffer, {Id, FrameInfo}},
+
+    TimingInfo = ws_anim_utils:info(#{animator => Name, avg_frame_time => AvgTime}),
+    %io:format(user, "~p / ~p sending TimingInfo ~p to Channel ~p~n", [self(), Name, TimingInfo, Channel]),
+    Channel ! {send, info, TimingInfo},
     State1.
 
 % 5 seconds per side
@@ -85,7 +89,7 @@ frame_info(State = #state{window = WindowSeconds,
           name => Name},
     State1 = State#state{prev_time = CurrentTime,
                          times = CurrentTimes},
-    {State1, ws_anim_utils:json(TextMap)}.
+    {State1, ws_anim_utils:json(TextMap), Text}.
 
 send_controls(State = #state{name = Name, channel = Channel}) ->
     %Channel ! {send, control, textbox(Name, <<"width">>, State#state.width)},

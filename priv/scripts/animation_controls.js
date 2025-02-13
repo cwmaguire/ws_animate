@@ -24,17 +24,24 @@ function socketOpenListener(channel){
   return (event) => {
     console.log("Opened socket, sending commands");
     stop_button();
+    timing_label();
     socket.send(`channel join ${channel}`);
-    socket.send("channel sub log");
+    //socket.send("channel sub log");
+    socket.send("channel sub info");
     socket.send("channel sub control");
   }
 }
 
 function socketMessage(event){
-  log(event.data);
-  obj = JSON.parse(event.data);
-  if(obj.type == "control" && obj.animator == animator){
-    control(obj);
+  const obj = JSON.parse(event.data);
+  const {animator: anim, type} = obj;
+  switch(anim + type){
+    case animator + 'control':
+      control(obj);
+      break;
+    case animator + 'info':
+      info(obj);
+      break;
   }
 }
 
@@ -65,6 +72,22 @@ function stop_button(){
   document.body.appendChild(br);
 }
 
+function timing_label(){
+  const t = document.createElement("input");
+  t.setAttribute("type", "text");
+  t.id = 'timing';
+  t.name = 'timing';
+  t.value = '';
+  const l = document.createElement('label');
+  l.textContent = 'timing';
+  l.htmlFor = t.id;
+
+  const br = document.createElement('br');
+  document.body.appendChild(l);
+  document.body.appendChild(t);
+  document.body.appendChild(br);
+}
+
 function control(Command){
   const {cmd} = Command;
   //console.log(`Command.cmd ${Command.cmd}`);
@@ -81,6 +104,12 @@ function control(Command){
       break;
     default:
       console.log(`Ignoring command ${cmd}`);
+  }
+}
+
+function info(msg){
+  if("avg_frame_time" in msg){
+     document.getElementById('timing').value = msg.avg_frame_time;
   }
 }
 
