@@ -19,6 +19,20 @@
 
 -define(FRAME_MILLIS, 100).
 
+-define(ANIMATOR_NAMES,
+        [#{name => squares, short_name => s},
+         #{name => circles, short_name => c1},
+         #{name => circles2, short_name => c2},
+         #{name => gradient, short_name => g},
+         #{name => fps, short_name => f}]).
+
+-define(ANIMATORS,
+        #{<<"squares">> => ws_anim_animate_squares,
+          <<"circles">> => ws_anim_animate_circles,
+          <<"circles2">> => ws_anim_animate_circles2,
+          <<"gradient">> => ws_anim_animate_gradient,
+          <<"fps">> => ws_anim_animate_frame_info}).
+
 -record(state, {id = "no ID set",
                 sockets = [],
                 animators = [],
@@ -68,9 +82,8 @@ handle_call(leave, {From, _}, State = #state{id = Id, sockets = Sockets, subs = 
     NewSockets = lists:delete(From, Sockets),
     {reply, Log, State#state{sockets = NewSockets, subs = NewSubs}};
 handle_call(animator_list, _From, State) ->
-    Names = animator_names(),
-    Info = ws_anim_utils:info(#{animators => Names}),
-    {reply, Info, State#state{animators = Names}};
+    Info = ws_anim_utils:info(#{animators => ?ANIMATOR_NAMES}),
+    {reply, Info, State#state{animators = ?ANIMATOR_NAMES}};
 handle_call({add_animator, Spec}, _From, State = #state{animators = Animators}) ->
     {Info, Pid, Name} = add_animator_(Spec, State),
     {reply, Info, State#state{animators = [{Name, Pid} | Animators]}};
@@ -150,17 +163,10 @@ add_animator_(Spec, State) ->
             {Info, Pid, Name}
     end.
 
-% Hack
-decode_animator_add_spec(<<"squares ", Name/binary>>) when Name /= <<"">> ->
-    {ok, ws_anim_animate_squares, Name};
-decode_animator_add_spec(<<"circles ", Name/binary>>) when Name /= <<"">> ->
-    {ok, ws_anim_animate_circles, Name};
-decode_animator_add_spec(<<"circles2 ", Name/binary>>) when Name /= <<"">> ->
-    {ok, ws_anim_animate_circles2, Name};
-decode_animator_add_spec(<<"gradient ", Name/binary>>) when Name /= <<"">> ->
-    {ok, ws_anim_animate_gradient, Name};
-decode_animator_add_spec(Bin) ->
-    case binary:split(Bin, <<" ">>) of
+decode_animator_add_spec(Spec) ->
+    case binary:split(Spec, <<" ">>) of
+        [Type, Name] ->
+            {ok, maps:get(Type, ?ANIMATORS), Name};
         [Bin1] ->
             {error, Bin1};
         [Bin1, Bin2] ->
@@ -195,12 +201,6 @@ decode_animator_set_spec(Spec) ->
 
 stop_animator(Pid) ->
     Pid ! stop.
-
-animator_names() ->
-    [#{name => squares, short_name => s},
-     #{name => circles, short_name => c1},
-     #{name => circles2, short_name => c2},
-     #{name => gradient, short_name => g}].
 
 type(<<"log">>) -> log;
 type(<<"draw">>) -> draw;

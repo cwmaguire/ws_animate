@@ -117,6 +117,9 @@ function draw(Command){
     case "line":
       line(c, Command);
       break;
+    case "text":
+      text(c, Command);
+      break;
     default:
       console.log(`Ignoring command ${cmd}`);
   }
@@ -156,6 +159,12 @@ function line({ctx}, {x1, y1, x2, y2}){
   ctx.moveTo(x1, y1);
   ctx.lineTo(x2, y2);
   ctx.stroke();
+}
+
+function text({ctx}, {text, x, y, font_size, font_color}){
+  ctx.font = `${font_size}, 'Courier New', monospace;`;
+  ctx.fillStyle = font_color;
+  ctx.fillText(text, x, y);
 }
 
 function ctx(){
