@@ -158,7 +158,7 @@ add_animator_(Spec, State) ->
             Log = ws_anim_utils:log(Error),
             {Log, State};
         {ok, AnimatorModule, Name} ->
-            {ok, Pid} = AnimatorModule:start(Name),
+            {ok, Pid} = ws_anim_animator:start(Name, AnimatorModule),
             Info = ws_anim_utils:info(#{animator_name => Name}),
             {Info, Pid, Name}
     end.

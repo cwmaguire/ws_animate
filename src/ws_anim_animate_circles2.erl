@@ -1,52 +1,25 @@
 -module(ws_anim_animate_circles2).
 
--behaviour(gen_server).
+-export([init/2]).
+-export([animate/2]).
+-export([set/3]).
+-export([send_controls/1]).
 
--export([start/1]).
-
--export([init/1]).
--export([handle_call/3]).
--export([handle_cast/2]).
--export([handle_info/2]).
-
--define(FRAME_MILLIS, 100).
 -define(PI, math:pi()).
 
 -record(state, {name,
                 channel = undefined,
-                frame = 1,
                 radius = 300,
                 style = <<"black">>,
                 last_x_y}).
 
-start(Name) ->
-    Caller = self(),
-    gen_server:start(?MODULE, _Args = {Name, Caller}, _Opts = []).
+init(Name, Channel) ->
+    #state{name = Name, channel = Channel}.
 
-init({Name, Channel}) ->
-    erlang:send_after(?FRAME_MILLIS, self(), animate),
-    {ok, #state{name = Name, channel = Channel}}.
-
-handle_call(_, _From, State) ->
-    {reply, ok, State}.
-
-handle_cast(_, State) ->
-    {noreply, State}.
-
-handle_info(animate, State0 = #state{frame = Frame}) ->
-    State1 = animate(State0),
-    {noreply, State1#state{frame = Frame + 1}};
-handle_info({set, Field, Value}, State) ->
-    {noreply, set(Field, Value, State)};
-handle_info(send_controls, State = #state{}) ->
-    send_controls(State),
-    {noreply, State}.
-
-animate(State = #state{name = Name,
+animate(Frame,
+        State = #state{name = Name,
                        channel = Channel,
-                       frame = Frame,
                        last_x_y = LastXY}) ->
-    erlang:send_after(?FRAME_MILLIS, self(), animate),
     Circles = [{Name, id(1), ?PI / 4, 41, ?PI / 100},
                {Name, id(2), ?PI / 3, 27, ?PI / 50},
                {Name, id(3), ?PI / 2, 18, ?PI / 25},
@@ -103,7 +76,7 @@ line(Name, Id, X1, Y1, X2, Y2) ->
 send_controls(State = #state{name = Name, channel = Channel}) ->
     Channel ! {send, control, textbox(Name, <<"radius">>, State#state.radius)},
     Channel ! {send, control, textbox(Name, <<"style">>, State#state.style)},
-    ok.
+    State.
 
 textbox(AnimatorName, Field, Value) ->
     Id = <<AnimatorName/binary, "_", Field/binary, "_textbox">>,
