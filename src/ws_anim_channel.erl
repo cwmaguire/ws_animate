@@ -8,6 +8,7 @@
 -export([animator_list/1]).
 -export([add_animator/2]).
 -export([animator_set_field_value/2]).
+-export([animator_stop/2]).
 -export([sub/2]).
 -export([subs/1]).
 
@@ -43,6 +44,9 @@ add_animator(ChannelPid, Name) ->
 animator_set_field_value(ChannelPid, AnimatorFieldValue) ->
     gen_server:call(ChannelPid, {animator_set_field_value, AnimatorFieldValue}).
 
+animator_stop(ChannelPid, Name) ->
+    gen_server:call(ChannelPid, {animator_stop, Name}).
+
 sub(ChannelPid, Type) ->
     gen_server:call(ChannelPid, {sub, Type}).
 
@@ -72,6 +76,11 @@ handle_call({add_animator, Spec}, _From, State = #state{animators = Animators}) 
     {reply, Info, State#state{animators = [{Name, Pid} | Animators]}};
 handle_call({animator_set_field_value, AnimatorFieldValue}, _From, State) ->
     Log = set_animator_field(AnimatorFieldValue, State),
+    {reply, Log, State};
+handle_call({animator_stop, Name}, _From, State) ->
+    Animators = State#state.animators,
+    [stop_animator(Pid) || {Name_, Pid} <- Animators, Name == Name_],
+    Log = ws_anim_utils:log(<<"Attempted to stop ", Name/binary>>),
     {reply, Log, State};
 handle_call({sub, TypeBin}, {From, _}, State = #state{subs = Subs}) ->
     Type = type(TypeBin),
@@ -112,8 +121,11 @@ handle_info({buffer, DrawObject}, State = #state{ets_id = EtsId}) ->
 handle_info(send_buffer, State = #state{subs = Subs, ets_id = EtsId}) ->
     DrawCalls = ets:tab2list(EtsId),
     %io:format(user, "DrawCalls = ~p~n", [DrawCalls]),
+    Clear = {0, draw_clear_json()},
+    Finish = {0, finish_json()},
+    Commands = [Clear | DrawCalls] ++ [Finish],
     [Socket ! {send, Json} || {Socket, draw} <- Subs,
-                             {_Id, Json} <- [{0, draw_clear_json()} | DrawCalls]],
+                             {_Id, Json} <- Commands],
     erlang:send_after(?FRAME_MILLIS, self(), send_buffer),
     {noreply, State#state{buffer = []}};
 handle_info(Info, State) ->
@@ -180,11 +192,14 @@ decode_animator_set_spec(Spec) ->
             {error, Spec}
     end.
 
+stop_animator(Pid) ->
+    Pid ! stop.
+
 animator_names() ->
-    [<<"squares">>,
-     <<"circles">>,
-     <<"circles2">>,
-     <<"gradient">>].
+    [#{name => squares, short_name => s},
+     #{name => circles, short_name => c1},
+     #{name => circles2, short_name => c2},
+     #{name => gradient, short_name => g}].
 
 type(<<"log">>) -> log;
 type(<<"draw">>) -> draw;
@@ -220,3 +235,6 @@ control_clear_json() ->
 
 draw_clear_json() ->
   iolist_to_binary(json:encode(#{type => <<"draw">>, cmd => <<"clear">>})).
+
+finish_json() ->
+  iolist_to_binary(json:encode(#{type => <<"draw">>, cmd => <<"finish">>})).

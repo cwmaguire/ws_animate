@@ -4,6 +4,8 @@ const socket = new WebSocket("ws://localhost:8081/ws");
 var c;
 var channel;
 var animatorIndex = 1;
+var receive_buffer = [];
+var draw_buffer = [];
 
 // Connection opened
 socket.addEventListener("open", (event) => {
@@ -12,26 +14,41 @@ socket.addEventListener("open", (event) => {
   socket.send("animator list");
   //socket.send("channel sub log");
   //socket.send("animator add animator1 a");
+  requestAnimationFrame(render_buffer);
 });
 
 socket.addEventListener("message", (event) => {
   let obj = JSON.parse(event.data);
-  if(obj.type == "draw"){
-    //console.log('draw');
-    draw(obj);
-  }else if(obj.type == "info" && "channel_name" in obj){
+  switch(obj.type){
+    case "draw":
+      if(obj.cmd == "finish"){
+        draw_buffer = receive_buffer;
+        receive_buffer = [];
+      }else{
+        receive_buffer.push(obj);
+      }
+      break;
+    case "info":
+      info(obj);
+      break;
+    case "log":
+      console.log(obj.log);
+      break;
+    }
+});
+
+function info(obj){
+  if("channel_name" in obj){
     console.log(`channel name info: ${event.data}`);
     channel = obj.channel_name;
-  }else if(obj.type == "info" && "animators" in obj){
+  }else if("animators" in obj){
     console.log(`animators info: ${event.data}`)
     animator_buttons(obj.animators);
-  }else if(obj.type == "info" && "animator_name" in obj){
+  }else if("animator_name" in obj){
     console.log(`animator_name info: ${event.data}`)
     animator_server_button(obj.animator_name);
-  }else if(obj.type == "log"){
-    console.log(obj.log);
   }
-});
+}
 
 socket.addEventListener("error", (event) => {
   console.log("Websocket error: ", event);
@@ -45,19 +62,19 @@ function notNullOrUndefined(val){
   return val != null; // checks for null and undefined since they both equate to null
 }
 
-function animator_buttons(names){
+function animator_buttons(animators){
   document.getElementById("animator_button_div").childNodes.forEach(({child}) => child.remove());
-  names.forEach((name) => {console.log(name); animator_button(name)});
+  animators.forEach((animator) => {animator_button(animator)});
 }
 
-function animator_button(name){
+function animator_button({name, short_name}){
   const button = document.createElement("input");
   button.id = `animator_button_${name}`;
   button.type = "button";
   button.value = name;
   button.addEventListener("click",
     (event) => {
-      socket.send(`animator add ${name} ${animatorIndex.toString()}`);
+      socket.send(`animator add ${name} ${short_name}_${animatorIndex.toString()}`);
       animatorIndex += 1;
     });
   document.getElementById("animator_button_div").appendChild(button);
@@ -71,6 +88,13 @@ function animator_server_button(name){
   const qsParams = {channel: channel, animator: name};
   button.addEventListener("click", (event) => { openNewWindow("animation_controls", qsParams) })
   document.getElementById("animator_controls_button_div").appendChild(button);
+}
+
+function render_buffer(_timestamp){
+  const buffer = draw_buffer;
+  draw_buffer = [];
+  buffer.forEach(draw);
+  requestAnimationFrame(render_buffer);
 }
 
 function draw(Command){
@@ -110,7 +134,7 @@ function square({ctx}, {x, y, w, h, style}){
 
 function square_filled({ctx}, Command){
   var {x, y, w, h, style : {gx1, gy1, gx2, gy2, stop1: {stop: s1, color: c1}, stop2: {stop: s2, color: c2}}} = Command;
-  console.dir(Command);
+  //console.dir(Command);
   var gradient = ctx.createLinearGradient(gx1, gy1, gx2, gy2);
   gradient.addColorStop(s1, c1);
   gradient.addColorStop(s2, c2);

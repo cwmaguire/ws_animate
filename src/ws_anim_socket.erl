@@ -83,6 +83,10 @@ do(<<"animator set ", AnimatorFieldValue/binary>>, State = #state{channel = Chan
     io:format(user, "AnimatorFieldValue = ~p~n", [AnimatorFieldValue]),
     Log = ws_anim_channel:animator_set_field_value(Channel, AnimatorFieldValue),
     {[Log], State};
+do(<<"animator stop ", Animator/binary>>, State = #state{channel = Channel}) ->
+    io:format(user, "Stop animator ~p~n", [Animator]),
+    Log = ws_anim_channel:animator_stop(Channel, Animator),
+    {[Log], State};
 do(Other, State) ->
     Log = ws_anim_utils:log(<<"Command '", Other/binary, "' not recognized">>),
     {[Log], State}.
