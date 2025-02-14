@@ -111,6 +111,9 @@ function draw(Command){
     case "square_filled":
       square_filled(c, Command);
       break;
+    case "square_gradient":
+      square_gradient(c, Command);
+      break;
     case "circle":
       circle(c, Command);
       break;
@@ -135,9 +138,13 @@ function square({ctx}, {x, y, w, h, style}){
   ctx.strokeRect(x, y, w, h);
 }
 
-function square_filled({ctx}, Command){
+function square_filled({ctx}, {x, y, w, h, style}){
+  ctx.fillStyle = style;
+  ctx.fillRect(x, y, w, h);
+}
+
+function square_gradient({ctx}, Command){
   var {x, y, w, h, style : {gx1, gy1, gx2, gy2, stop1: {stop: s1, color: c1}, stop2: {stop: s2, color: c2}}} = Command;
-  //console.dir(Command);
   var gradient = ctx.createLinearGradient(gx1, gy1, gx2, gy2);
   gradient.addColorStop(s1, c1);
   gradient.addColorStop(s2, c2);

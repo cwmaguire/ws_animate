@@ -3,7 +3,8 @@
 -export([json/1]).
 -export([info/1]).
 -export([log/1]).
--export([avg_frame_time/3]).
+-export([tuple_to_color/1]).
+-export([color_to_tuple/1]).
 
 
 json(Map) ->
@@ -15,18 +16,25 @@ info(Map) ->
 log(Bin) ->
     json(#{type => <<"log">>, log => Bin}).
 
-avg_frame_time(WindowSeconds, PrevTime, PrevTimes) ->
-    CurrentTime = erlang:monotonic_time(millisecond),
-    CurrentDiff = CurrentTime - PrevTime,
+-define(ZERO_PAD_HEX, "~2.16.0B").
 
-    MinimumTime = CurrentTime - (WindowSeconds * 1000),
+tuple_to_color({R, G, B}) ->
+    String =
+        io_lib:format("#"
+                      ?ZERO_PAD_HEX
+                      ?ZERO_PAD_HEX
+                      ?ZERO_PAD_HEX,
+                      [R, G, B]),
+    list_to_binary(String).
 
-    NewTimes = [{CurrentTime, CurrentDiff} | PrevTimes],
-    CurrentTimes = [TD || TD = {T, _} <- NewTimes, T > MinimumTime],
+color_to_tuple(<<"#",
+                 R:2/binary,
+                 G:2/binary,
+                 B:2/binary>>) ->
+    Red = b2hex(R),
+    Green = b2hex(G),
+    Blue = b2hex(B),
+    {Red, Green, Blue}.
 
-    Diffs = [D || {_, D} <- CurrentTimes],
-    DiffTotal = lists:foldl(fun erlang:'+'/2, 0, Diffs),
-    AvgTime =  abs(DiffTotal / length(CurrentTimes)),
-    AvgTimeBin = float_to_binary(AvgTime, [{decimals, 3}]),
-
-    {AvgTimeBin, CurrentTime, CurrentTimes}.
+b2hex(Bin) ->
+    binary_to_integer(Bin, 16).

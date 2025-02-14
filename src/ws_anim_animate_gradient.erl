@@ -58,7 +58,7 @@ square(#state{width = W, height = H}, Frame, Name) ->
 
     SquareMap =
         #{type => <<"draw">>,
-          cmd => <<"square_filled">>,
+          cmd => <<"square_gradient">>,
           x => 0,
           y => 0,
           w => W,

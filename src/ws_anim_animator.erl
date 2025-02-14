@@ -12,7 +12,7 @@
 -record(state, {name,
                 channel = undefined,
                 frame = 1,
-                frame_millis = 100,
+                frame_millis = 50,
                 animator_module,
                 animator_state,
                 window_secs = 1 :: integer(),
@@ -110,9 +110,7 @@ avg_frame_time(State = #state{window_secs = WindowSeconds,
     {AvgTimeBin,
      CurrentTime,
      CurrentTimes}
-        = ws_anim_utils:avg_frame_time(WindowSeconds,
-                                              PrevTime,
-                                              PrevTimes),
+        = avg_frame_time(WindowSeconds, PrevTime, PrevTimes),
 
     State1 = State#state{prev_time = CurrentTime,
                          times = CurrentTimes},
@@ -134,3 +132,18 @@ textbox(AnimatorName, Field, Value) ->
                 label => <<AnimatorName/binary, " ", Field/binary>>},
     ws_anim_utils:json(Textbox).
 
+avg_frame_time(WindowSeconds, PrevTime, PrevTimes) ->
+    CurrentTime = erlang:monotonic_time(millisecond),
+    CurrentDiff = CurrentTime - PrevTime,
+
+    MinimumTime = CurrentTime - (WindowSeconds * 1000),
+
+    NewTimes = [{CurrentTime, CurrentDiff} | PrevTimes],
+    CurrentTimes = [TD || TD = {T, _} <- NewTimes, T > MinimumTime],
+
+    Diffs = [D || {_, D} <- CurrentTimes],
+    DiffTotal = lists:foldl(fun erlang:'+'/2, 0, Diffs),
+    AvgTime =  abs(DiffTotal / length(CurrentTimes)),
+    AvgTimeBin = float_to_binary(AvgTime, [{decimals, 3}]),
+
+    {AvgTimeBin, CurrentTime, CurrentTimes}.

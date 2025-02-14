@@ -110,6 +110,9 @@ function control(Command){
     case "textbox":
       textbox(Command);
       break;
+    case "color_picker":
+      color_picker(Command);
+      break;
     default:
       console.log(`Ignoring command ${cmd}`);
   }
@@ -170,6 +173,27 @@ function textbox(textbox){
   document.body.appendChild(l);
   document.body.appendChild(t);
   document.body.appendChild(br);
+}
+
+function color_picker(colorPicker){
+  const cp = document.createElement('input');
+  cp.setAttribute('type', 'color');
+  cp.id = colorPicker.id;
+  cp.name = colorPicker.name;
+  cp.value = colorPicker.value;
+  const l = document.createElement('label');
+  l.textContent = colorPicker.label;
+  l.htmlFor = cp.id;
+
+  const command = `animator set ${colorPicker.animator} ${colorPicker.field}`;
+  cp.addEventListener("change", ({data}) => {send(`${command} ${cp.value}`)});
+
+  const br = document.createElement('br');
+
+  document.body.appendChild(l);
+  document.body.appendChild(cp);
+  document.body.appendChild(br);
+
 }
 
 function send(text){

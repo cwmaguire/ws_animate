@@ -27,14 +27,16 @@
          #{name => circles, short_name => c1},
          #{name => circles2, short_name => c2},
          #{name => gradient, short_name => g},
-         #{name => fps, short_name => f}]).
+         #{name => fps, short_name => f},
+         #{name => background, short_name => bg}]).
 
 -define(ANIMATORS,
         #{<<"squares">> => ws_anim_animate_squares,
           <<"circles">> => ws_anim_animate_circles,
           <<"circles2">> => ws_anim_animate_circles2,
           <<"gradient">> => ws_anim_animate_gradient,
-          <<"fps">> => ws_anim_animate_frame_info}).
+          <<"fps">> => ws_anim_animate_frame_info,
+          <<"background">> => ws_anim_animate_background}).
 
 -record(state, {id = "no ID set",
                 sockets = [],
