@@ -91,6 +91,14 @@ do(<<"animator start ", Animator/binary>>, State = #state{channel = Channel}) ->
     io:format(user, "Start animator ~p~n", [Animator]),
     Log = ws_anim_channel:animator_start(Channel, Animator),
     {[Log], State};
+do(<<"animator freeze ", Animator/binary>>, State = #state{channel = Channel}) ->
+    io:format(user, "Freeze animator ~p~n", [Animator]),
+    Log = ws_anim_channel:animator_freeze(Channel, Animator),
+    {[Log], State};
+do(<<"animator unfreeze ", Animator/binary>>, State = #state{channel = Channel}) ->
+    io:format(user, "Unfreeze animator ~p~n", [Animator]),
+    Log = ws_anim_channel:animator_unfreeze(Channel, Animator),
+    {[Log], State};
 do(Other, State) ->
     Log = ws_anim_utils:log(<<"Command '", Other/binary, "' not recognized">>),
     {[Log], State}.

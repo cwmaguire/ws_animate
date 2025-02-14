@@ -23,8 +23,12 @@ function setup_websocket(channel){
 function socketOpenListener(channel){
   return (event) => {
     console.log("Opened socket, sending commands");
-    stop_button();
-    start_button();
+    button('start');
+    button('stop');
+    br();
+    button('freeze');
+    button('unfreeze');
+    br();
     timing_label();
     socket.send(`channel join ${channel}`);
     //socket.send("channel sub log");
@@ -61,28 +65,19 @@ function log(str){
   console.log(str);
 }
 
-function stop_button(){
-  const button = document.createElement("input");
-  button.type = "button";
-  button.id = `${animator}_stop`;
-  button.value = 'Stop';
-  const command = `animator stop ${animator}`;
-  button.addEventListener("click", ({data}) => {send(`${command}`)});
+function br(){
   const br = document.createElement('br');
-  document.body.appendChild(button);
   document.body.appendChild(br);
 }
 
-function start_button(){
+function button(action){
   const button = document.createElement("input");
   button.type = "button";
-  button.id = `${animator}_start`;
-  button.value = 'Start';
-  const command = `animator start ${animator}`;
+  button.id = `${animator}_${action}`;
+  button.value = action;
+  const command = `animator ${action} ${animator}`;
   button.addEventListener("click", ({data}) => {send(`${command}`)});
-  const br = document.createElement('br');
   document.body.appendChild(button);
-  document.body.appendChild(br);
 }
 
 function timing_label(){

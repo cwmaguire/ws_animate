@@ -18,7 +18,7 @@
                 window_secs = 1 :: integer(),
                 prev_time :: integer,
                 times = [] :: list(),
-                running = true}).
+                running = true :: true | false | freeze}).
 
 start(Name, Module) ->
     Caller = self(),
@@ -47,7 +47,14 @@ handle_info(animate, State = #state{running = false}) ->
     {noreply, State};
 handle_info(animate, State = #state{frame = Frame}) ->
     State1 = animate(State),
-    {noreply, State1#state{frame = Frame + 1}};
+    NextFrame =
+       case State#state.running of
+           freeze ->
+               Frame;
+           true ->
+               Frame + 1
+       end,
+    {noreply, State1#state{frame = NextFrame}};
 handle_info({set, Field, Value},
             State = #state{animator_state = AState,
                            animator_module = AMod}) ->
@@ -75,6 +82,11 @@ handle_info(send_controls,
 handle_info(stop, State) ->
     {noreply, State#state{running = false}};
 handle_info(start, State) ->
+    erlang:send_after(State#state.frame_millis, self(), animate),
+    {noreply, State#state{running = true}};
+handle_info(freeze, State) ->
+    {noreply, State#state{running = freeze}};
+handle_info(unfreeze, State) ->
     erlang:send_after(State#state.frame_millis, self(), animate),
     {noreply, State#state{running = true}}.
 
