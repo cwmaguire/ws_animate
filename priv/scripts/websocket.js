@@ -6,6 +6,10 @@ var channel;
 var animatorIndex = 1;
 var receive_buffer = [];
 var draw_buffer = [];
+var click_targets = [];
+var canvas = document.querySelector('#canvas1');
+
+canvas.addEventListener("click", (e) => get_click_target(e));
 
 // Connection opened
 socket.addEventListener("open", (event) => {
@@ -85,14 +89,14 @@ function animator_server_button(name){
   button.id = `animator_controls_button_${name}`;
   button.type = "button";
   button.value = name;
-  const qsParams = {channel: channel, animator: name};
+  const qsParams = {channel, animator: name};
   button.addEventListener("click",
     (event) => {
       if('old_window' in button){
-        button.old_window.close();
-        delete button.old_window;
+        button.old_window.focus();
+      }else{
+        open_new_window("animation_controls", qsParams, button);
       }
-      openNewWindow("animation_controls", qsParams, button);
     })
   document.getElementById("animator_controls_button_div").appendChild(button);
 }
@@ -111,6 +115,7 @@ function draw(Command){
   switch(cmd){
     case "clear":
       clear(c);
+      click_targets = [];
       break;
     case "square":
       square(c, Command);
@@ -139,35 +144,42 @@ function clear({ctx, w, h}){
   ctx.clearRect(0, 0, w, h);
 }
 
-function square({ctx}, {x, y, w, h, style}){
-  //console.log(`square: x: ${x}, y: ${y}, w: ${w}, h: ${h}, style: ${style}`);
+function square({ctx}, command){
+  const {x, y, w, h, style, name} = command;
   ctx.strokeSyle = style;
   ctx.strokeRect(x, y, w, h);
+  add_click_target({...command, type: 'square'});
 }
 
-function square_filled({ctx}, {x, y, w, h, style}){
+function square_filled({ctx}, command){
+  const {x, y, w, h, style, name} = command;
   ctx.fillStyle = style;
   ctx.fillRect(x, y, w, h);
+  add_click_target({...command, type: 'square'});
 }
 
-function square_gradient({ctx}, Command){
-  var {x, y, w, h, style : {gx1, gy1, gx2, gy2, stop1: {stop: s1, color: c1}, stop2: {stop: s2, color: c2}}} = Command;
+function square_gradient({ctx}, command){
+  var {x, y, w, h, style : {gx1, gy1, gx2, gy2, stop1: {stop: s1, color: c1}, stop2: {stop: s2, color: c2}}} = command;
   var gradient = ctx.createLinearGradient(gx1, gy1, gx2, gy2);
   gradient.addColorStop(s1, c1);
   gradient.addColorStop(s2, c2);
   ctx.fillStyle = gradient;
   ctx.fillRect(x, y, w, h);
+  add_click_target({...command, type: 'square'});
 }
 
-function circle({ctx}, {x, y, r, style}){
+function circle({ctx}, command){
+  const {x, y, r, style, name} = command;
   //console.log(`square: x: ${x}, y: ${y}, w: ${w}, h: ${h}, style: ${style}`);
   ctx.strokeSyle = style;
   ctx.beginPath();
   ctx.ellipse(x, y, r, r, 0, 0, 2 * Math.PI);
   ctx.stroke();
+  add_click_target({...command, type: 'circle'});
 }
 
-function line({ctx}, {x1, y1, x2, y2}){
+function line({ctx}, command){
+  const {x1, y1, x2, y2} = command;
   ctx.strokStyle = 'black';
   ctx.beginPath();
   ctx.moveTo(x1, y1);
@@ -188,10 +200,10 @@ function ctx(){
 }
 
 function animationControls(){
-  openNewWindow("animation_controls");
+  open_new_window("animation_controls");
 }
 
-function openNewWindow(name, qsParams, button) {
+function open_new_window(name, qsParams, button) {
   const top = window.screenTop;
   const left = window.screenLeft;
   const url = `http://localhost:8081/html/${name}.html`;
@@ -202,4 +214,52 @@ function openNewWindow(name, qsParams, button) {
     socket.addEventListener("close", (event) => { newWindow.close(); });
   });
   button.old_window = newWindow;
+}
+
+function add_click_target(shape){
+  click_targets.unshift(shape);
+}
+
+
+function get_click_target(event){
+  const {offsetX: x, offsetY: y} = event;
+  console.log(`Click on ${x}, ${y}`);
+  const is_click_target_ = (ct) => is_click_target(ct, {x, y});
+  const maybe_click_target = click_targets.filter(is_click_target_)[0];
+  if(maybe_click_target){
+    console.log(`found ${maybe_click_target.name}`);
+    document.querySelector(`#animator_controls_button_${maybe_click_target.name}`).click();
+  }else{
+    console.log('-------------------------------');
+    console.dir(click_targets);
+    console.dir(event);
+    console.log('-------------------------------');
+  }
+}
+
+function is_click_target(shape, {x, y}){
+  switch(shape.type){
+    case 'square':
+      console.dir(shape);
+      console.dir(`Is shape at ${x}, ${y}?`);
+      return square_hittest({x, y}, shape);
+      break;
+    case 'circle':
+      return circle_hittest({x, y}, shape);
+      break;
+    default:
+      console.dir(shape);
+      console.dir(`Is shape at ${x}, ${y}?`);
+  }
+}
+
+function square_hittest({x, y}, square){
+  return x >= square.x &&
+         x <= square.x + square.w &&
+         y >= square.y &&
+         y <= square.y + square.h;
+}
+
+function circle_hittest({x: x1, y: y1}, {x: x2, y: y2, r}){
+  return r >= Math.hypot(x1 - x2, y1 - y2);
 }
