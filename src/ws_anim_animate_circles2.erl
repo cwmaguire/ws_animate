@@ -14,7 +14,7 @@
                 radius = 300,
                 style = <<"black">>,
                 last_x_y,
-                is_showing_name}).
+                is_showing_name = false}).
 
 init(Name, Channel) ->
     #state{name = Name, channel = Channel}.
@@ -41,7 +41,6 @@ animate(Frame,
             ok
     end,
     maybe_send_name(State),
-
     State#state{last_x_y = {X2, Y2}}.
 
 
