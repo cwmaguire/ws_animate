@@ -1,36 +1,35 @@
 "use strict";
-// Create WebSocket connection.
-const socket = new WebSocket("ws://localhost:8081/ws");
-var c;
+var context2dWithDims;
 var channel;
+var canvas;
+var loadSaveDiv;
+var animatorControlsDiv;
+var animatorControlsButtonDiv;
 var animatorIndex = 1;
 var receive_buffer = [];
 var draw_buffer = [];
 var click_targets = [];
-var canvas = document.querySelector('#canvas1');
 
-canvas.addEventListener("click", (e) => get_click_target(e));
+create_canvas_and_controls();
 
-// Connection opened
-socket.addEventListener("open", (event) => {
+const socket = new WebSocket("ws://localhost:8081/ws");
+socket.addEventListener("open", websocket_open);
+socket.addEventListener("message", websocket_message);
+socket.addEventListener("error", websocket_error);
+socket.addEventListener("close", websocket_close);
+
+function websocket_open(event){
   socket.send("channel start");
   socket.send("channel sub draw");
   socket.send("animator list");
-  //socket.send("channel sub log");
-  //socket.send("animator add animator1 a");
-  requestAnimationFrame(render_buffer);
-});
+  requestAnimationFrame(animation_frame);
+}
 
-socket.addEventListener("message", (event) => {
+function websocket_message(event){
   let obj = JSON.parse(event.data);
   switch(obj.type){
     case "draw":
-      if(obj.cmd == "finish"){
-        draw_buffer = receive_buffer;
-        receive_buffer = [];
-      }else{
-        receive_buffer.push(obj);
-      }
+      buffer_command(obj);
       break;
     case "info":
       info(obj);
@@ -38,8 +37,16 @@ socket.addEventListener("message", (event) => {
     case "log":
       console.log(obj.log);
       break;
-    }
-});
+  }
+}
+
+function websocket_error(event){
+  console.log("Websocket error: ", event);
+}
+
+function websocket_close(event){
+  console.log("Websocket close. Code: ", event.code, ". Reason: \"", event.reason, "\". Clean? ", event.wasClean);
+}
 
 function info(obj){
   if("channel_name" in obj){
@@ -52,18 +59,6 @@ function info(obj){
     console.log(`animator_name info: ${event.data}`)
     animator_server_button(obj.animator_name);
   }
-}
-
-socket.addEventListener("error", (event) => {
-  console.log("Websocket error: ", event);
-});
-
-socket.addEventListener("close", (event) => {
-  console.log("Websocket close. Code: ", event.code, ". Reason: \"", event.reason, "\". Clean? ", event.wasClean);
-});
-
-function notNullOrUndefined(val){
-  return val != null; // checks for null and undefined since they both equate to null
 }
 
 function animator_buttons(animators){
@@ -101,39 +96,49 @@ function animator_server_button(name){
   document.getElementById("animator_controls_button_div").appendChild(button);
 }
 
+function buffer_command(obj){
+  if(obj.cmd == "finish"){
+    draw_buffer = receive_buffer;
+    receive_buffer = [];
+  }else{
+    receive_buffer.push(obj);
+  }
+}
+
+function animation_frame(_timestamp){
+  render_buffer();
+  requestAnimationFrame(animation_frame);
+}
+
 function render_buffer(_timestamp){
   const buffer = draw_buffer;
   draw_buffer = [];
   buffer.forEach(draw);
-  requestAnimationFrame(render_buffer);
 }
 
 function draw(Command){
   const {cmd} = Command;
-  //console.log(cmd);
-  c = ctx();
   switch(cmd){
     case "clear":
-      clear(c);
-      click_targets = [];
+      clear(context2dWithDims);
       break;
     case "square":
-      square(c, Command);
+      square(context2dWithDims, Command);
       break;
     case "square_filled":
-      square_filled(c, Command);
+      square_filled(context2dWithDims, Command);
       break;
     case "square_gradient":
-      square_gradient(c, Command);
+      square_gradient(context2dWithDims, Command);
       break;
     case "circle":
-      circle(c, Command);
+      circle(context2dWithDims, Command);
       break;
     case "line":
-      line(c, Command);
+      line(context2dWithDims, Command);
       break;
     case "text":
-      text(c, Command);
+      text(context2dWithDims, Command);
       break;
     default:
       console.log(`Ignoring command ${cmd}`);
@@ -142,6 +147,7 @@ function draw(Command){
 
 function clear({ctx, w, h}){
   ctx.clearRect(0, 0, w, h);
+  click_targets = [];
 }
 
 function square({ctx}, command){
@@ -193,16 +199,6 @@ function text({ctx}, {text, x, y, font_size, font_color}){
   ctx.fillText(text, x, y);
 }
 
-function ctx(){
-  const canvas = document.getElementById("canvas1");
-  const ctx = canvas.getContext("2d");
-  return {ctx: ctx, w: canvas.width, h: canvas.height};
-}
-
-function animationControls(){
-  open_new_window("animation_controls");
-}
-
 function open_new_window(name, qsParams, button) {
   const top = window.screenTop;
   const left = window.screenLeft;
@@ -220,36 +216,24 @@ function add_click_target(shape){
   click_targets.unshift(shape);
 }
 
-
 function get_click_target(event){
+  const temp_click_targets = click_targets.slice();
   const {offsetX: x, offsetY: y} = event;
-  console.log(`Click on ${x}, ${y}`);
   const is_click_target_ = (ct) => is_click_target(ct, {x, y});
-  const maybe_click_target = click_targets.filter(is_click_target_)[0];
+  const maybe_click_target = temp_click_targets.filter(is_click_target_)[0];
   if(maybe_click_target){
-    console.log(`found ${maybe_click_target.name}`);
     document.querySelector(`#animator_controls_button_${maybe_click_target.name}`).click();
-  }else{
-    console.log('-------------------------------');
-    console.dir(click_targets);
-    console.dir(event);
-    console.log('-------------------------------');
   }
 }
 
 function is_click_target(shape, {x, y}){
   switch(shape.type){
     case 'square':
-      console.dir(shape);
-      console.dir(`Is shape at ${x}, ${y}?`);
       return square_hittest({x, y}, shape);
       break;
     case 'circle':
       return circle_hittest({x, y}, shape);
       break;
-    default:
-      console.dir(shape);
-      console.dir(`Is shape at ${x}, ${y}?`);
   }
 }
 
@@ -262,4 +246,29 @@ function square_hittest({x, y}, square){
 
 function circle_hittest({x: x1, y: y1}, {x: x2, y: y2, r}){
   return r >= Math.hypot(x1 - x2, y1 - y2);
+}
+
+function create_canvas_and_controls(){
+
+  loadSaveDiv = div('load_save_div');
+  animatorControlsDiv = div('animator_controls_div');
+  animatorControlsButtonDiv = div('animator_controls_button_div');
+
+  canvas = document.createElement('canvas');
+  canvas.id = 'canvas1';
+  canvas.width = '800px';
+  canvas.height = '700px';
+
+  const ctx = canvas.getContext("2d");
+  context2dWithDims = {ctx: ctx,
+                       w: canvas.width,
+                       h: canvas.height};
+  canvas.addEventListener("click", get_click_target);
+}
+
+function div(id){
+  const div = document.createElement('div');
+  div.id = 'load_save_div';
+  document.body.appendChild(div);
+  return div;
 }
