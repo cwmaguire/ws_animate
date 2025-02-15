@@ -108,10 +108,9 @@ function control(Command){
       select(Command);
       break;
     case "textbox":
-      textbox(Command);
-      break;
-    case "color_picker":
-      color_picker(Command);
+    case "color":
+    case "checkbox":
+      input(Command);
       break;
     default:
       console.log(`Ignoring command ${cmd}`);
@@ -155,45 +154,31 @@ function select({id, name, label, options}){
   document.body.appendChild(br);
 }
 
-function textbox(textbox){
-  const t = document.createElement("input");
-  t.setAttribute("type", "text");
-  t.id = textbox.id;
-  t.name = textbox.name;
-  t.value = textbox.value;
+function input(object){
+  const i = document.createElement("input");
+  i.setAttribute("type", object.cmd);
+  i.id = object.id;
+  i.name = object.name;
+  i.value = object.value;
+  i.checked = object.is_checked;
   const l = document.createElement('label');
-  l.textContent = textbox.label;
-  l.htmlFor = t.id;
+  l.textContent = object.label;
+  l.htmlFor = i.id;
 
-  const command = `animator set ${textbox.animator} ${textbox.field}`;
-  t.addEventListener("change", ({data}) => {send(`${command} ${t.value}`)});
+  const command = `animator set ${object.animator} ${object.field}`;
+  let eventHandler;
+  if(object.cmd == 'checkbox'){
+    eventHandler = () => send(`${command} ${i.checked}`);
+  }else{
+    eventHandler = () => send(`${command} ${i.value}`);
+  }
+  i.addEventListener("change", eventHandler);
 
   const br = document.createElement('br');
 
   document.body.appendChild(l);
-  document.body.appendChild(t);
+  document.body.appendChild(i);
   document.body.appendChild(br);
-}
-
-function color_picker(colorPicker){
-  const cp = document.createElement('input');
-  cp.setAttribute('type', 'color');
-  cp.id = colorPicker.id;
-  cp.name = colorPicker.name;
-  cp.value = colorPicker.value;
-  const l = document.createElement('label');
-  l.textContent = colorPicker.label;
-  l.htmlFor = cp.id;
-
-  const command = `animator set ${colorPicker.animator} ${colorPicker.field}`;
-  cp.addEventListener("change", ({data}) => {send(`${command} ${cp.value}`)});
-
-  const br = document.createElement('br');
-
-  document.body.appendChild(l);
-  document.body.appendChild(cp);
-  document.body.appendChild(br);
-
 }
 
 function send(text){

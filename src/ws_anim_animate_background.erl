@@ -7,12 +7,15 @@
 
 -record(state, {name,
                 channel = undefined,
+                x = 0,
+                y = 0,
                 width = 800,
                 height = 700,
                 color1 = {0, 0, 0},
                 color2 = {255, 255, 255},
                 color_tween_frames = 100,
-                color_frame_delta = {2.55, 2.55, 2.55}}).
+                color_frame_delta = {2.55, 2.55, 2.55},
+                is_cycling = true}).
 
 init(Name, Channel) ->
     #state{name = Name, channel = Channel}.
@@ -27,29 +30,55 @@ animate(Frame,
     State.
 
 % 5 seconds per side
-square(State = #state{width = W, height = H},
+square(State = #state{x = X, y = Y, width = W, height = H},
        Frame,
        Name) ->
     FrameColor = frame_color(Frame, State),
     SquareMap =
         #{type => <<"draw">>,
           cmd => <<"square_filled">>,
-          x => 0,
-          y => 0,
+          x => X,
+          y => Y,
           w => W,
           h => H,
           style => FrameColor,
           name => Name},
     ws_anim_utils:json(SquareMap).
 
-frame_color(Frame, #state{color1 = {R1, G1, B1},
-                          color_tween_frames = TweenFrames,
-                          color_frame_delta = {RD, GD, BD}}) ->
+frame_color(Frame, State = #state{color_tween_frames = TweenFrames}) ->
+
+    {RBase, GBase, BBase} = base_color(Frame, State),
+    {RDelta, GDelta, BDelta} = color_deltas(Frame, State),
+
     TweenFrame = Frame rem TweenFrames,
-    R = trunc(R1 + (TweenFrame * RD)),
-    G = trunc(G1 + (TweenFrame * GD)),
-    B = trunc(B1 + (TweenFrame * BD)),
+    R = trunc(RBase + (TweenFrame * RDelta)),
+    G = trunc(GBase + (TweenFrame * GDelta)),
+    B = trunc(BBase + (TweenFrame * BDelta)),
     ws_anim_utils:tuple_to_color({R, G, B}).
+
+base_color(Frame, State = #state{is_cycling = true, color_tween_frames = Frames}) ->
+    TweenFrame = Frame rem (Frames * 2),
+    case TweenFrame < 100 of
+        true ->
+            State#state.color1;
+        false ->
+            State#state.color2
+    end;
+base_color(_Frame, #state{is_cycling = false, color1 = Color1}) ->
+    Color1.
+
+color_deltas(Frame, #state{is_cycling = true,
+                           color_tween_frames = Frames,
+                           color_frame_delta = {RD, GD, BD}}) ->
+    TweenFrame = Frame rem (Frames * 2),
+    case TweenFrame =< 100 of
+        true ->
+            {RD, GD, BD};
+        false ->
+            {-RD, -GD, -BD}
+    end;
+color_deltas(_Frame, #state{color_frame_delta = Deltas}) ->
+    Deltas.
 
 send_controls(State = #state{name = Name,
                              channel = Channel,
@@ -57,23 +86,32 @@ send_controls(State = #state{name = Name,
                              color2 = Color2}) ->
 
     Color1Bin = ws_anim_utils:tuple_to_color(Color1),
-    Channel ! {send, control, color_picker(Name, <<"color_1">>, Color1Bin)},
-
     Color2Bin = ws_anim_utils:tuple_to_color(Color2),
-    Channel ! {send, control, color_picker(Name, <<"color_2">>, Color2Bin)},
+
+    send_input_control(Channel, Name, <<"color">>, <<"color_1">>, Color1Bin),
+    send_input_control(Channel, Name, <<"color">>, <<"color_2">>, Color2Bin),
+    send_input_control(Channel, Name, <<"textbox">>, <<"x">>, State#state.x),
+    send_input_control(Channel, Name, <<"textbox">>, <<"y">>, State#state.y),
+    send_input_control(Channel, Name, <<"textbox">>, <<"width">>, State#state.width),
+    send_input_control(Channel, Name, <<"textbox">>, <<"height">>, State#state.height),
+    send_input_control(Channel, Name, <<"checkbox">>, <<"is_cycling">>, State#state.is_cycling),
     State.
 
-color_picker(AnimatorName, Field, Value) ->
-    Id = <<AnimatorName/binary, "_", Field/binary, "_textbox">>,
-    ColorPicker = #{type => <<"control">>,
-                    cmd => <<"color_picker">>,
-                    id => Id,
-                    name => Id,
-                    animator => AnimatorName,
-                    field => Field,
-                    value => Value,
-                    label => <<AnimatorName/binary, " ", Field/binary>>},
-    ws_anim_utils:json(ColorPicker).
+send_input_control(Channel, Name, Type, Field, Value) ->
+    InputControl = input(Name, Type, Field, Value),
+    Channel ! {send, control, InputControl}.
+
+input(AnimatorName, Type, Field, Value) ->
+    Id = <<AnimatorName/binary, "_", Field/binary, "_", Type/binary>>,
+    Input = #{type => <<"control">>,
+              cmd => Type,
+              id => Id,
+              name => Id,
+              animator => AnimatorName,
+              field => Field,
+              value => Value,
+              label => <<AnimatorName/binary, " ", Field/binary>>},
+    ws_anim_utils:json(Input).
 
 set(<<"color_1">>, Value, State) ->
     Color1 = ws_anim_utils:color_to_tuple(Value),
@@ -81,6 +119,32 @@ set(<<"color_1">>, Value, State) ->
 set(<<"color_2">>, Value, State) ->
     Color2 = ws_anim_utils:color_to_tuple(Value),
     color_frame_delta(State#state{color2 = Color2});
+set(<<"is_cycling">>, Value, State) ->
+    case Value of
+        <<"true">> ->
+            State#state{is_cycling = true};
+        <<"false">> ->
+            State#state{is_cycling = false};
+        _ ->
+            State#state.channel ! {send, log, ws_anim_utils:log(<<"Invalid boolean ", Value/binary, " for is_cycling">>)},
+            State
+    end;
+set(<<"x">>, Value, State) ->
+  case catch binary_to_integer(Value) of
+      I when is_integer(I) ->
+          State#state{x = I};
+      _ ->
+          State#state.channel ! {send, log, ws_anim_utils:log(<<"Invalid integer ", Value/binary, " for x">>)},
+          State
+  end;
+set(<<"y">>, Value, State) ->
+  case catch binary_to_integer(Value) of
+      I when is_integer(I) ->
+          State#state{y = I};
+      _ ->
+          State#state.channel ! {send, log, ws_anim_utils:log(<<"Invalid integer ", Value/binary, " for y">>)},
+          State
+  end;
 set(<<"width">>, Value, State) ->
   case catch binary_to_integer(Value) of
       I when is_integer(I) ->
