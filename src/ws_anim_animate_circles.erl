@@ -1,5 +1,7 @@
 -module(ws_anim_animate_circles).
 
+-include("ws_anim.hrl").
+
 -export([init/2]).
 -export([animate/2]).
 -export([set/3]).
@@ -35,21 +37,9 @@ circle(State, Frame, Name) ->
     ws_anim_utils:json(Map).
 
 send_controls(State = #state{name = Name, channel = Channel}) ->
-    Channel ! {send, control, textbox(Name, <<"radius">>, State#state.radius)},
-    Channel ! {send, control, textbox(Name, <<"style">>, State#state.style)},
+    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"radius">>, State#state.radius),
+    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"style">>, State#state.style),
     State.
-
-textbox(AnimatorName, Field, Value) ->
-    Id = <<AnimatorName/binary, "_", Field/binary, "_textbox">>,
-    Textbox = #{type => <<"control">>,
-                cmd => <<"textbox">>,
-                id => Id,
-                name => Id,
-                animator => AnimatorName,
-                field => Field,
-                value => Value,
-                label => <<AnimatorName/binary, " ", Field/binary>>},
-    ws_anim_utils:json(Textbox).
 
 set(<<"radius">>, Value, State) ->
   case catch binary_to_integer(Value) of

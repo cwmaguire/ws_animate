@@ -1,5 +1,7 @@
 -module(ws_anim_animate_circles2).
 
+-include("ws_anim.hrl").
+
 -export([init/2]).
 -export([animate/2]).
 -export([set/3]).
@@ -11,7 +13,8 @@
                 channel = undefined,
                 radius = 300,
                 style = <<"black">>,
-                last_x_y}).
+                last_x_y,
+                is_showing_name}).
 
 init(Name, Channel) ->
     #state{name = Name, channel = Channel}.
@@ -37,7 +40,10 @@ animate(Frame,
         _ ->
             ok
     end,
+    maybe_send_name(State),
+
     State#state{last_x_y = {X2, Y2}}.
+
 
 id(X) ->
     ZIndex = 100,
@@ -73,22 +79,31 @@ line(Name, Id, X1, Y1, X2, Y2) ->
     DrawInstruction = ws_anim_utils:json(Map),
     {Id, DrawInstruction}.
 
-send_controls(State = #state{name = Name, channel = Channel}) ->
-    Channel ! {send, control, textbox(Name, <<"radius">>, State#state.radius)},
-    Channel ! {send, control, textbox(Name, <<"style">>, State#state.style)},
-    State.
+maybe_send_name(#state{name = Name,
+                       channel = Channel,
+                       is_showing_name = true}) ->
+    TextMap =
+        #{type => <<"draw">>,
+          cmd => <<"text">>,
+          x => 290,
+          y => 290,
+          text => Name,
+          font_size => ?NAME_FONT_SIZE,
+          font_color => ?NAME_FONT_COLOR,
+          name => Name},
 
-textbox(AnimatorName, Field, Value) ->
-    Id = <<AnimatorName/binary, "_", Field/binary, "_textbox">>,
-    Textbox = #{type => <<"control">>,
-                cmd => <<"textbox">>,
-                id => Id,
-                name => Id,
-                animator => AnimatorName,
-                field => Field,
-                value => Value,
-                label => <<AnimatorName/binary, " ", Field/binary>>},
-    ws_anim_utils:json(Textbox).
+    TextJson = ws_anim_utils:json(TextMap),
+
+    Id = {1, self(), 2},
+    Channel ! {buffer, {Id, TextJson}};
+maybe_send_name(_) ->
+    ok.
+
+send_controls(State = #state{name = Name, channel = Channel}) ->
+    ?utils:send_input_control(Channel, Name, <<"checkbox">>, <<"is_showing_name">>, State#state.is_showing_name),
+    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"radius">>, State#state.radius),
+    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"style">>, State#state.style),
+    State.
 
 set(<<"radius">>, Value, State) ->
   case catch binary_to_integer(Value) of
@@ -101,6 +116,16 @@ set(<<"radius">>, Value, State) ->
   end;
 set(<<"style">>, Value, State) ->
     State#state{style = Value};
+set(<<"is_showing_name">>, Value, State) ->
+    case Value of
+        <<"true">> ->
+            State#state{is_showing_name = true};
+        <<"false">> ->
+            State#state{is_showing_name = false};
+        _ ->
+            State#state.channel ! {send, log, ws_anim_utils:log(<<"Invalid boolean ", Value/binary, " for is_showing_name">>)},
+            State
+    end;
 set(Field, _Value, State) ->
     State#state.channel ! {send, log, ws_anim_utils:log(<<"Unrecognized field: ", Field/binary>>)},
     State.

@@ -1,5 +1,7 @@
 -module(ws_anim_animate_background).
 
+-include("ws_anim.hrl").
+
 -export([init/2]).
 -export([animate/2]).
 -export([set/3]).
@@ -15,7 +17,8 @@
                 color2 = {255, 255, 255},
                 color_tween_frames = 100,
                 color_frame_delta = {2.55, 2.55, 2.55},
-                is_cycling = true}).
+                is_cycling = true,
+                is_showing_name = false}).
 
 init(Name, Channel) ->
     #state{name = Name, channel = Channel}.
@@ -27,6 +30,7 @@ animate(Frame,
     Id = {ZIndex, self(), 1},
     Square = square(State, Frame, Name),
     Channel ! {buffer, {Id, Square}},
+    maybe_send_name(State),
     State.
 
 % 5 seconds per side
@@ -44,6 +48,28 @@ square(State = #state{x = X, y = Y, width = W, height = H},
           style => FrameColor,
           name => Name},
     ws_anim_utils:json(SquareMap).
+
+maybe_send_name(#state{name = Name,
+                       channel = Channel,
+                       x = X,
+                       y = Y,
+                       is_showing_name = true}) ->
+    TextMap =
+        #{type => <<"draw">>,
+          cmd => <<"text">>,
+          x => X + ?NAME_OFFSET_X,
+          y => Y + ?NAME_OFFSET_Y,
+          text => Name,
+          font_size => ?NAME_FONT_SIZE,
+          font_color => ?NAME_FONT_COLOR,
+          name => Name},
+
+    TextJson = ws_anim_utils:json(TextMap),
+
+    Id = {1, self(), 2},
+    Channel ! {buffer, {Id, TextJson}};
+maybe_send_name(_) ->
+    ok.
 
 frame_color(Frame, State = #state{color_tween_frames = TweenFrames}) ->
 
@@ -79,7 +105,6 @@ color_deltas(Frame, #state{is_cycling = true,
     end;
 color_deltas(_Frame, #state{color_frame_delta = Deltas}) ->
     Deltas.
-
 send_controls(State = #state{name = Name,
                              channel = Channel,
                              color1 = Color1,
@@ -88,30 +113,15 @@ send_controls(State = #state{name = Name,
     Color1Bin = ws_anim_utils:tuple_to_color(Color1),
     Color2Bin = ws_anim_utils:tuple_to_color(Color2),
 
-    send_input_control(Channel, Name, <<"color">>, <<"color_1">>, Color1Bin),
-    send_input_control(Channel, Name, <<"color">>, <<"color_2">>, Color2Bin),
-    send_input_control(Channel, Name, <<"textbox">>, <<"x">>, State#state.x),
-    send_input_control(Channel, Name, <<"textbox">>, <<"y">>, State#state.y),
-    send_input_control(Channel, Name, <<"textbox">>, <<"width">>, State#state.width),
-    send_input_control(Channel, Name, <<"textbox">>, <<"height">>, State#state.height),
-    send_input_control(Channel, Name, <<"checkbox">>, <<"is_cycling">>, State#state.is_cycling),
+    ?utils:send_input_control(Channel, Name, <<"color">>, <<"color_1">>, Color1Bin),
+    ?utils:send_input_control(Channel, Name, <<"color">>, <<"color_2">>, Color2Bin),
+    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"x">>, State#state.x),
+    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"y">>, State#state.y),
+    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"width">>, State#state.width),
+    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"height">>, State#state.height),
+    ?utils:send_input_control(Channel, Name, <<"checkbox">>, <<"is_cycling">>, State#state.is_cycling),
+    ?utils:send_input_control(Channel, Name, <<"checkbox">>, <<"is_showing_name">>, State#state.is_showing_name),
     State.
-
-send_input_control(Channel, Name, Type, Field, Value) ->
-    InputControl = input(Name, Type, Field, Value),
-    Channel ! {send, control, InputControl}.
-
-input(AnimatorName, Type, Field, Value) ->
-    Id = <<AnimatorName/binary, "_", Field/binary, "_", Type/binary>>,
-    Input = #{type => <<"control">>,
-              cmd => Type,
-              id => Id,
-              name => Id,
-              animator => AnimatorName,
-              field => Field,
-              value => Value,
-              label => <<AnimatorName/binary, " ", Field/binary>>},
-    ws_anim_utils:json(Input).
 
 set(<<"color_1">>, Value, State) ->
     Color1 = ws_anim_utils:color_to_tuple(Value),
@@ -127,6 +137,16 @@ set(<<"is_cycling">>, Value, State) ->
             State#state{is_cycling = false};
         _ ->
             State#state.channel ! {send, log, ws_anim_utils:log(<<"Invalid boolean ", Value/binary, " for is_cycling">>)},
+            State
+    end;
+set(<<"is_showing_name">>, Value, State) ->
+    case Value of
+        <<"true">> ->
+            State#state{is_showing_name = true};
+        <<"false">> ->
+            State#state{is_showing_name = false};
+        _ ->
+            State#state.channel ! {send, log, ws_anim_utils:log(<<"Invalid boolean ", Value/binary, " for is_showing_name">>)},
             State
     end;
 set(<<"x">>, Value, State) ->

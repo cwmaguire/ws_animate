@@ -5,7 +5,8 @@
 -export([log/1]).
 -export([tuple_to_color/1]).
 -export([color_to_tuple/1]).
-
+-export([send_input_control/5]).
+-export([input/4]).
 
 json(Map) ->
   iolist_to_binary(json:encode(Map)).
@@ -38,3 +39,19 @@ color_to_tuple(<<"#",
 
 b2hex(Bin) ->
     binary_to_integer(Bin, 16).
+
+send_input_control(Channel, Name, Type, Field, Value) ->
+    InputControl = input(Name, Type, Field, Value),
+    Channel ! {send, control, InputControl}.
+
+input(AnimatorName, Type, Field, Value) ->
+    Id = <<AnimatorName/binary, "_", Field/binary, "_", Type/binary>>,
+    Input = #{type => <<"control">>,
+              cmd => Type,
+              id => Id,
+              name => Id,
+              animator => AnimatorName,
+              field => Field,
+              value => Value,
+              label => <<AnimatorName/binary, " ", Field/binary>>},
+    ws_anim_utils:json(Input).
