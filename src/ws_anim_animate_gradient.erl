@@ -4,11 +4,24 @@
 -export([animate/2]).
 -export([set/3]).
 -export([send_controls/1]).
+-export([get_state/1]).
+-export([load_state/2]).
+-export([rec_info/0]).
 
 -record(state, {name,
                 channel = undefined,
                 width = 800,
                 height = 700}).
+
+rec_info() -> {record_info(size, state),
+               record_info(fields, state)}.
+
+get_state(#state{width = W,
+                 height = H}) ->
+    #{width => W, height => H}.
+
+load_state(State, #{width := W, height := H}) ->
+    State#state{width = W, height = H}.
 
 init(Name, Channel) ->
     #state{name = Name, channel = Channel}.

@@ -6,6 +6,7 @@
 -export([animate/2]).
 -export([set/3]).
 -export([send_controls/1]).
+-export([rec_info/0]).
 
 -define(PI, math:pi()).
 
@@ -15,6 +16,9 @@
                 style = <<"black">>,
                 last_x_y,
                 is_showing_name = false}).
+
+rec_info() -> {record_info(size, state),
+               record_info(fields, state)}.
 
 init(Name, Channel) ->
     #state{name = Name, channel = Channel}.

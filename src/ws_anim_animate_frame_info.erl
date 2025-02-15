@@ -4,6 +4,7 @@
 -export([animate/2]).
 -export([set/3]).
 -export([send_controls/1]).
+-export([rec_info/0]).
 
 -record(state, {name,
                 channel = undefined,
@@ -14,6 +15,9 @@
                 window_secs = 1 :: integer(),
                 prev_time :: integer,
                 times = [] :: list()}).
+
+rec_info() -> {record_info(size, state),
+               record_info(fields, state)}.
 
 init(Name, Channel) ->
     CurrentTime = erlang:monotonic_time(millisecond),
@@ -61,22 +65,22 @@ frame_info(State = #state{window_secs = WindowSeconds,
                          times = CurrentTimes},
     {State1, ws_anim_utils:json(TextMap)}.
 
-send_controls(State = #state{name = Name, channel = Channel}) ->
+send_controls(State = #state{name = _Name, channel = _Channel}) ->
     %Channel ! {send, control, textbox(Name, <<"width">>, State#state.width)},
     %Channel ! {send, control, textbox(Name, <<"height">>, State#state.height)},
     State.
 
-textbox(AnimatorName, Field, Value) ->
-    Id = <<AnimatorName/binary, "_", Field/binary, "_textbox">>,
-    Textbox = #{type => <<"control">>,
-                cmd => <<"textbox">>,
-                id => Id,
-                name => Id,
-                animator => AnimatorName,
-                field => Field,
-                value => Value,
-                label => <<AnimatorName/binary, " ", Field/binary>>},
-    ws_anim_utils:json(Textbox).
+%textbox(AnimatorName, Field, Value) ->
+%    Id = <<AnimatorName/binary, "_", Field/binary, "_textbox">>,
+%    Textbox = #{type => <<"control">>,
+%                cmd => <<"textbox">>,
+%                id => Id,
+%                name => Id,
+%                animator => AnimatorName,
+%                field => Field,
+%                value => Value,
+%                label => <<AnimatorName/binary, " ", Field/binary>>},
+%    ws_anim_utils:json(Textbox).
 
 set(<<"width">>, Value, State) ->
   case catch binary_to_integer(Value) of

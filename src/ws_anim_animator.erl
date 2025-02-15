@@ -2,7 +2,9 @@
 
 -behaviour(gen_server).
 
+-export([start/1]).
 -export([start/2]).
+-export([get_state/1]).
 
 -export([init/1]).
 -export([handle_call/3]).
@@ -20,12 +22,36 @@
                 times = [] :: list(),
                 running = true :: true | false | freeze}).
 
+
+start(StateMap = #{}) ->
+    Caller = self(),
+    gen_server:start(?MODULE,
+                     _Args = {StateMap, Caller},
+                     _Opts = []).
+
 start(Name, Module) ->
     Caller = self(),
     gen_server:start(?MODULE,
                      _Args = {Name, Caller, Module},
                      _Opts = []).
 
+get_state(Animator) ->
+    gen_server:call(Animator, get_state).
+
+init({_LoadedState = #{name := Name,
+                       module := AModBin,
+                       frame_millis := FrameMillis,
+                       frame := Frame,
+                       state := LoadedState},
+      Channel}) ->
+    AMod = binary_to_atom(AModBin),
+    {ok, State0 = #state{animator_state = AState0}} =
+        init({Name, Channel, AMod}),
+    AState = load_state(AMod, AState0, LoadedState),
+    {ok, State0#state{animator_state = AState,
+                      frame_millis = FrameMillis,
+                      frame = Frame,
+                      name = Name}};
 init({Name, Channel, AnimatorModule}) ->
     State = #state{},
     erlang:send_after(State#state.frame_millis, self(), animate),
@@ -37,6 +63,19 @@ init({Name, Channel, AnimatorModule}) ->
                      animator_state = AState,
                      prev_time = CurrentTime}}.
 
+handle_call(get_state,
+            {_From, _},
+            State = #state{animator_module = AMod,
+                           animator_state = AState,
+                           frame_millis = FrameMillis,
+                           frame = Frame,
+                           name = Name}) ->
+    SavedState = #{module => AMod,
+                   frame_millis => FrameMillis,
+                   frame => Frame,
+                   name => Name,
+                   state => get_state(AMod, AState)},
+    {reply, SavedState, State};
 handle_call(_, _From, State) ->
     {reply, ok, State}.
 
@@ -147,3 +186,39 @@ avg_frame_time(WindowSeconds, PrevTime, PrevTimes) ->
     AvgTimeBin = float_to_binary(AvgTime, [{decimals, 3}]),
 
     {AvgTimeBin, CurrentTime, CurrentTimes}.
+
+get_state(AMod, AState) ->
+    {_, [_, _ | Fields]} = AMod:rec_info(),
+    [_, _, _ | Values] = tuple_to_list(AState),
+    maps:from_list(lists:zip(Fields, fix(Values))).
+
+load_state(AMod, AState, Map) ->
+    {RecordTupleSize, Fields} = AMod:rec_info(),
+    [_RecName | Idxs] = lists:zip([rec_name | Fields], lists:seq(1, RecordTupleSize)),
+    SetTupleElementFun =
+      fun({Key, Idx}, Tuple)
+            when Key /= name,
+                 Key /= channel ->
+              Value = maps:get(Key, Map),
+              setelement(Idx, Tuple, unfix(Value));
+         (_NameOrChannel, Tuple) ->
+              Tuple
+      end,
+    lists:foldl(SetTupleElementFun, AState, Idxs).
+
+fix(Values) ->
+    [fix_(V) || V <- Values].
+
+fix_(Tuple) when is_tuple(Tuple) ->
+    [<<"tuple">> | tuple_to_list(Tuple)];
+fix_(Atom) when is_atom(Atom) ->
+    [<<"atom">>, atom_to_binary(Atom)];
+fix_(X) ->
+    X.
+
+unfix([<<"tuple">> | Values]) ->
+    list_to_tuple(Values);
+unfix([<<"atom">>, Bin]) ->
+    binary_to_atom(Bin);
+unfix(X) ->
+    X.

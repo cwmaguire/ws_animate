@@ -6,12 +6,16 @@
 -export([animate/2]).
 -export([set/3]).
 -export([send_controls/1]).
+-export([rec_info/0]).
 
 -record(state, {name,
                 channel = undefined,
                 radius = 300,
                 style = <<"black">>,
                 is_showing_name = false}).
+
+rec_info() -> {record_info(size, state),
+               record_info(fields, state)}.
 
 init(Name, Channel) ->
     #state{name = Name, channel = Channel}.

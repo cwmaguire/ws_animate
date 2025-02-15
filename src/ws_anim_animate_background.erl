@@ -6,6 +6,7 @@
 -export([animate/2]).
 -export([set/3]).
 -export([send_controls/1]).
+-export([rec_info/0]).
 
 -record(state, {name,
                 channel = undefined,
@@ -19,6 +20,9 @@
                 color_frame_delta = {2.55, 2.55, 2.55},
                 is_cycling = true,
                 is_showing_name = false}).
+
+rec_info() -> {record_info(size, state),
+               record_info(fields, state)}.
 
 init(Name, Channel) ->
     #state{name = Name, channel = Channel}.

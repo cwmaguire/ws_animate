@@ -1,9 +1,9 @@
-"use strict";
+'use strict';
 var context2dWithDims;
 var channel;
 var canvas;
 var loadSaveDiv;
-var animatorControlsDiv;
+var animatorButtonDiv;
 var animatorControlsButtonDiv;
 var animatorIndex = 1;
 var receive_buffer = [];
@@ -12,92 +12,67 @@ var click_targets = [];
 
 create_canvas_and_controls();
 
-const socket = new WebSocket("ws://localhost:8081/ws");
-socket.addEventListener("open", websocket_open);
-socket.addEventListener("message", websocket_message);
-socket.addEventListener("error", websocket_error);
-socket.addEventListener("close", websocket_close);
+const socket = new WebSocket('ws://localhost:8081/ws');
+socket.addEventListener('open', websocket_open);
+socket.addEventListener('message', websocket_message);
+socket.addEventListener('error', websocket_error);
+socket.addEventListener('close', websocket_close);
 
 function websocket_open(event){
-  socket.send("channel start");
-  socket.send("channel sub draw");
-  socket.send("animator list");
+  socket.send('channel start');
+  socket.send('channel sub draw');
+  socket.send('animator list');
   requestAnimationFrame(animation_frame);
 }
 
 function websocket_message(event){
   let obj = JSON.parse(event.data);
   switch(obj.type){
-    case "draw":
+    case 'draw':
       buffer_command(obj);
       break;
-    case "info":
+    case 'info':
       info(obj);
       break;
-    case "log":
+    case 'log':
       console.log(obj.log);
       break;
   }
 }
 
 function websocket_error(event){
-  console.log("Websocket error: ", event);
+  console.log('Websocket error: ', event);
 }
 
 function websocket_close(event){
-  console.log("Websocket close. Code: ", event.code, ". Reason: \"", event.reason, "\". Clean? ", event.wasClean);
+  console.log('Websocket close. Code: ', event.code, '. Reason: \'', event.reason, '\'. Clean? ', event.wasClean);
+}
+
+function load_animations(){
+  const filename = document.querySelector('#animation_filename').value;
+  socket.send(`channel load ${filename}`);
+}
+
+function save_animations(){
+  const filename = document.querySelector('#animation_filename').value;
+  socket.send(`channel save ${filename}`);
 }
 
 function info(obj){
-  if("channel_name" in obj){
+  if('channel_name' in obj){
     console.log(`channel name info: ${event.data}`);
     channel = obj.channel_name;
-  }else if("animators" in obj){
+  }else if('animators' in obj){
     console.log(`animators info: ${event.data}`)
     animator_buttons(obj.animators);
-  }else if("animator_name" in obj){
+  }else if('animator_name' in obj){
     console.log(`animator_name info: ${event.data}`)
-    animator_server_button(obj.animator_name);
+    animation_controls_button(obj.animator_name);
   }
 }
 
-function animator_buttons(animators){
-  document.getElementById("animator_button_div").childNodes.forEach(({child}) => child.remove());
-  animators.forEach((animator) => {animator_button(animator)});
-}
-
-function animator_button({name, short_name}){
-  const button = document.createElement("input");
-  button.id = `animator_button_${name}`;
-  button.type = "button";
-  button.value = name;
-  button.addEventListener("click",
-    (event) => {
-      socket.send(`animator add ${name} ${short_name}_${animatorIndex.toString()}`);
-      animatorIndex += 1;
-    });
-  document.getElementById("animator_button_div").appendChild(button);
-}
-
-function animator_server_button(name){
-  const button = document.createElement("input");
-  button.id = `animator_controls_button_${name}`;
-  button.type = "button";
-  button.value = name;
-  const qsParams = {channel, animator: name};
-  button.addEventListener("click",
-    (event) => {
-      if('old_window' in button){
-        button.old_window.focus();
-      }else{
-        open_new_window("animation_controls", qsParams, button);
-      }
-    })
-  document.getElementById("animator_controls_button_div").appendChild(button);
-}
-
 function buffer_command(obj){
-  if(obj.cmd == "finish"){
+  if(obj.cmd == 'finish'){
     draw_buffer = receive_buffer;
     receive_buffer = [];
   }else{
@@ -119,25 +94,25 @@ function render_buffer(_timestamp){
 function draw(Command){
   const {cmd} = Command;
   switch(cmd){
-    case "clear":
+    case 'clear':
       clear(context2dWithDims);
       break;
-    case "square":
+    case 'square':
       square(context2dWithDims, Command);
       break;
-    case "square_filled":
+    case 'square_filled':
       square_filled(context2dWithDims, Command);
       break;
-    case "square_gradient":
+    case 'square_gradient':
       square_gradient(context2dWithDims, Command);
       break;
-    case "circle":
+    case 'circle':
       circle(context2dWithDims, Command);
       break;
-    case "line":
+    case 'line':
       line(context2dWithDims, Command);
       break;
-    case "text":
+    case 'text':
       text(context2dWithDims, Command);
       break;
     default:
@@ -205,9 +180,9 @@ function open_new_window(name, qsParams, button) {
   const url = `http://localhost:8081/html/${name}.html`;
   const qs = new URLSearchParams(qsParams).toString();
   console.log(`Query string for new window: ${qs}`);
-  const newWindow = window.open(`${url}?${qs}`, "_blank", `top=${top - 50},left=${left + 50},width=600,height=400,status=1,toolbar=1`);
-  newWindow.addEventListener("load", (event) => {
-    socket.addEventListener("close", (event) => { newWindow.close(); });
+  const newWindow = window.open(`${url}?${qs}`, '_blank', `top=${top - 50},left=${left + 50},width=600,height=400,status=1,toolbar=1`);
+  newWindow.addEventListener('load', (event) => {
+    socket.addEventListener('close', (event) => { newWindow.close(); });
   });
   button.old_window = newWindow;
 }
@@ -251,24 +226,92 @@ function circle_hittest({x: x1, y: y1}, {x: x2, y: y2, r}){
 function create_canvas_and_controls(){
 
   loadSaveDiv = div('load_save_div');
-  animatorControlsDiv = div('animator_controls_div');
+  load_save_controls(loadSaveDiv);
+
+  animatorButtonDiv = div('animator_controls_div');
   animatorControlsButtonDiv = div('animator_controls_button_div');
 
+  create_canvas();
+  document.body.appendChild(loadSaveDiv);
+  document.body.appendChild(animatorButtonDiv);
+  document.body.appendChild(animatorControlsButtonDiv);
+  document.body.appendChild(canvas);
+}
+
+function create_canvas(){
   canvas = document.createElement('canvas');
   canvas.id = 'canvas1';
-  canvas.width = '800px';
-  canvas.height = '700px';
+  canvas.width = 800;
+  canvas.height = 700;
 
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext('2d');
   context2dWithDims = {ctx: ctx,
                        w: canvas.width,
                        h: canvas.height};
-  canvas.addEventListener("click", get_click_target);
+  canvas.addEventListener('click', get_click_target);
 }
 
 function div(id){
   const div = document.createElement('div');
-  div.id = 'load_save_div';
+  div.id = id;
   document.body.appendChild(div);
   return div;
+}
+
+function load_save_controls(loadSaveDiv){
+  const loadButton = button('load', load_animations);
+  const saveButton = button('save', save_animations);
+  loadSaveDiv.appendChild(loadButton);
+  loadSaveDiv.appendChild(saveButton);
+
+  const textbox = document.createElement("input");
+  textbox.setAttribute('type', 'text');
+  textbox.id = 'animation_filename';
+  textbox.name =  'animation_filename';
+  loadSaveDiv.appendChild(textbox);
+}
+
+function button(id, clickEventHandler){
+  const button = document.createElement('input');
+  button.type = 'button';
+  button.id = id;
+  button.value = id;
+  button.addEventListener('click', clickEventHandler);
+  return button;
+}
+
+
+function animator_buttons(animators){
+  animatorButtonDiv.childNodes.forEach(({child}) => child.remove());
+  animators.forEach((animator) => {animator_button(animator)});
+}
+
+function animator_button({name, short_name}){
+  const button = document.createElement('input');
+  button.id = `animator_button_${name}`;
+  button.type = 'button';
+  button.value = name;
+  button.addEventListener('click',
+    (event) => {
+      socket.send(`animator add ${name} ${short_name}_${animatorIndex.toString()}`);
+      animatorIndex += 1;
+    });
+  animatorButtonDiv.appendChild(button);
+}
+
+function animation_controls_button(name){
+  const button = document.createElement('input');
+  button.id = `animator_controls_button_${name}`;
+  button.type = 'button';
+  button.value = name;
+  const qsParams = {channel, animator: name};
+  button.addEventListener('click',
+    (event) => {
+      if('old_window' in button){
+        button.old_window.focus();
+      }else{
+        open_new_window('animation_controls', qsParams, button);
+      }
+    })
+  animatorControlsButtonDiv.appendChild(button);
 }

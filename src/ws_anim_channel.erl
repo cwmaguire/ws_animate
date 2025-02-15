@@ -1,5 +1,7 @@
 -module(ws_anim_channel).
 
+-include("ws_anim.hrl").
+
 -behaviour(gen_server).
 
 -export([start/1]).
@@ -14,6 +16,8 @@
 -export([animator_unfreeze/2]).
 -export([sub/2]).
 -export([subs/1]).
+-export([save/2]).
+-export([load/2]).
 
 -export([init/1]).
 -export([handle_call/3]).
@@ -54,6 +58,12 @@ join(ChannelPid) ->
 leave(ChannelPid) ->
     gen_server:call(ChannelPid, leave).
 
+save(ChannelPid, Filename) ->
+    gen_server:call(ChannelPid, {save, Filename}).
+
+load(ChannelPid, Filename) ->
+    gen_server:call(ChannelPid, {load, Filename}).
+
 animator_list(ChannelPid) ->
     gen_server:call(ChannelPid, animator_list).
 
@@ -87,16 +97,27 @@ init(Id) ->
     {ok, #state{id = Id, ets_id = TableId}}.
 
 handle_call(join, {From, _}, State = #state{id = Id, sockets = Sockets, subs = Subs}) ->
-    Log = ws_anim_utils:log(<<"Joined ", Id/binary>>),
+    Log = ?utils:log(<<"Joined ", Id/binary>>),
     {reply, Log, State#state{sockets = [From | Sockets], subs = [{From, log} | Subs]}};
 handle_call(leave, {From, _}, State = #state{id = Id, sockets = Sockets, subs = Subs}) ->
-    Log = ws_anim_utils:log(<<"Left ", Id/binary>>),
+    Log = ?utils:log(<<"Left ", Id/binary>>),
     Filter = fun({From_, _}) when From_ == From -> false; (_) -> true end,
     NewSubs = lists:filter(Filter, Subs),
     NewSockets = lists:delete(From, Sockets),
     {reply, Log, State#state{sockets = NewSockets, subs = NewSubs}};
+handle_call({save, Filename}, {_From, _}, State = #state{animators = Animators}) ->
+    States = [ws_anim_animator:get_state(A) || A <- maps:values(Animators)],
+    Json = json:encode(States),
+    file:write_file(Filename, Json),
+    {reply, ?utils:log(<<"ok">>), State};
+handle_call({load, Filename}, {_From, _}, State = #state{animators = Animators}) ->
+    {ok, Bin} = file:read_file(Filename),
+    AStates = atomize_keys(json:decode(Bin)),
+    [gen_server:stop(A) || A <- maps:values(Animators)],
+    [ws_anim_animator:start(AState) || AState <- AStates],
+    {reply, ?utils:log(<<"ok">>), State};
 handle_call(animator_list, _From, State) ->
-    Info = ws_anim_utils:info(#{animators => ?ANIMATOR_NAMES}),
+    Info = ?utils:info(#{animators => ?ANIMATOR_NAMES}),
     {reply, Info, State};
 handle_call({add_animator, Spec}, _From, State = #state{animators = Animators}) ->
     {Info, Pid, Name} = add_animator_(Spec, State),
@@ -107,37 +128,37 @@ handle_call({animator_set_field_value, AnimatorFieldValue}, _From, State) ->
 handle_call({animator_stop, Name}, _From, State) ->
     #{Name := Pid} = State#state.animators,
     Pid ! stop,
-    Log = ws_anim_utils:log(<<"Attempted to stop ", Name/binary>>),
+    Log = ?utils:log(<<"Attempted to stop ", Name/binary>>),
     {reply, Log, State};
 handle_call({animator_start, Name}, _From, State) ->
     #{Name := Pid} = State#state.animators,
     Pid ! start,
-    Log = ws_anim_utils:log(<<"Attempted to start ", Name/binary>>),
+    Log = ?utils:log(<<"Attempted to start ", Name/binary>>),
     {reply, Log, State};
 handle_call({animator_freeze, Name}, _From, State) ->
     #{Name := Pid} = State#state.animators,
     Pid ! freeze,
-    Log = ws_anim_utils:log(<<"Attempted to freeze ", Name/binary>>),
+    Log = ?utils:log(<<"Attempted to freeze ", Name/binary>>),
     {reply, Log, State};
 handle_call({animator_unfreeze, Name}, _From, State) ->
     #{Name := Pid} = State#state.animators,
     Pid ! unfreeze,
-    Log = ws_anim_utils:log(<<"Attempted to unfreeze ", Name/binary>>),
+    Log = ?utils:log(<<"Attempted to unfreeze ", Name/binary>>),
     {reply, Log, State};
 handle_call({sub, TypeBin}, {From, _}, State = #state{subs = Subs}) ->
     Type = type(TypeBin),
     case {Type, lists:member({From, Type}, Subs)} of
         {undefined, _} ->
-            Log = ws_anim_utils:log(<<"Invalid type: ", TypeBin/binary>>),
+            Log = ?utils:log(<<"Invalid type: ", TypeBin/binary>>),
             {reply, Log, State};
         {_, true} ->
-            Log = ws_anim_utils:log(<<"Already subbed to ", TypeBin/binary>>),
+            Log = ?utils:log(<<"Already subbed to ", TypeBin/binary>>),
             {reply, Log, State};
         {_, false} ->
             NewSubs = [{From, Type} | Subs],
             NewState = State#state{subs = NewSubs},
             new_sub(Type, NewState),
-            Log = ws_anim_utils:log(<<"Subbed to ", TypeBin/binary>>),
+            Log = ?utils:log(<<"Subbed to ", TypeBin/binary>>),
             {reply, Log, NewState}
     end;
 handle_call(subs, {From, _}, State = #state{subs = Subs}) ->
@@ -146,7 +167,7 @@ handle_call(subs, {From, _}, State = #state{subs = Subs}) ->
     Types = [atom_to_binary(Type) || {Socket, Type} <- Subs, Socket == From],
     io:format(user, "Types = ~p~n", [Types]),
     IoList = [<<"Subbed to [">>, lists:join(<<", ">>, Types), <<"]">>],
-    Log = ws_anim_utils:log(iolist_to_binary(IoList)),
+    Log = ?utils:log(iolist_to_binary(IoList)),
     {reply, Log, State};
 handle_call(_, _From, State) ->
     {reply, ok, State}.
@@ -183,15 +204,15 @@ add_animator_(Spec, State) ->
     case decode_animator_add_spec(Spec) of
         {error, Bin} ->
             Error = <<"Invalid animator add command \"", Bin/binary, "\"">>,
-            Log = ws_anim_utils:log(Error),
+            Log = ?utils:log(Error),
             {Log, State};
         {error, Bin1, _Bin2} ->
             Error = <<"Could not find animator \"", Bin1/binary, "\"">>,
-            Log = ws_anim_utils:log(Error),
+            Log = ?utils:log(Error),
             {Log, State};
         {ok, AnimatorModule, Name} ->
             {ok, Pid} = ws_anim_animator:start(Name, AnimatorModule),
-            Info = ws_anim_utils:info(#{animator_name => Name}),
+            Info = ?utils:info(#{animator_name => Name}),
             {Info, Pid, Name}
     end.
 
@@ -200,9 +221,7 @@ decode_animator_add_spec(Spec) ->
         [Type, Name] ->
             {ok, maps:get(Type, ?ANIMATORS), Name};
         [Bin1] ->
-            {error, Bin1};
-        [Bin1, Bin2] ->
-            {error, Bin1, Bin2}
+            {error, Bin1}
     end.
 
 set_animator_field(Spec, #state{animators = Animators}) ->
@@ -210,11 +229,11 @@ set_animator_field(Spec, #state{animators = Animators}) ->
     case decode_animator_set_spec(Spec) of
         {error, Bin} ->
             Error = <<"Invalid animator set command \"", Bin/binary, "\"">>,
-            ws_anim_utils:log(Error);
+            ?utils:log(Error);
         {ok, Animator, Field, Value} ->
             #{Animator := Pid} = Animators,
             set_animator_field(Pid, Field, Value),
-            ws_anim_utils:log(<<"Setting ", Animator/binary, " field ", Field/binary, " to ", Value/binary>>)
+            ?utils:log(<<"Setting ", Animator/binary, " field ", Field/binary, " to ", Value/binary>>)
     end.
 
 set_animator_field(Pid, Field, Value) ->
@@ -257,13 +276,23 @@ send_controls(Subs) ->
     [Socket ! {send, SelectJson} || {Socket, control} <- Subs].
 
 json(Map) ->
-  iolist_to_binary(json:encode(Map)).
+    iolist_to_binary(json:encode(Map)).
 
 control_clear_json() ->
-  iolist_to_binary(json:encode(#{type => <<"control">>, cmd => <<"clear">>})).
+    iolist_to_binary(json:encode(#{type => <<"control">>, cmd => <<"clear">>})).
 
 draw_clear_json() ->
-  iolist_to_binary(json:encode(#{type => <<"draw">>, cmd => <<"clear">>})).
+    iolist_to_binary(json:encode(#{type => <<"draw">>, cmd => <<"clear">>})).
 
 finish_json() ->
-  iolist_to_binary(json:encode(#{type => <<"draw">>, cmd => <<"finish">>})).
+    iolist_to_binary(json:encode(#{type => <<"draw">>, cmd => <<"finish">>})).
+
+atomize_keys(List) when is_list(List) ->
+    [atomize_keys(Map) || Map <- List];
+atomize_keys(Map) ->
+    maps:fold(fun atomize_keys/3, #{}, Map).
+
+atomize_keys(K, V, Map) when is_map(V) ->
+    maps:put(binary_to_atom(K), atomize_keys(V), Map);
+atomize_keys(K, V, Map) ->
+    maps:put(binary_to_atom(K), V, Map).

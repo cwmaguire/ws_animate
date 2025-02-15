@@ -73,6 +73,12 @@ do(<<"channel sub ", Type/binary>>, State = #state{channel = Channel}) ->
 do(<<"channel subs">>, State = #state{channel = Channel}) ->
     Msg = ws_anim_channel:subs(Channel),
     {[Msg], State};
+do(<<"channel save ", Filename/binary>>, State = #state{channel = Channel}) ->
+    Msg = ws_anim_channel:save(Channel, Filename),
+    {[Msg], State};
+do(<<"channel load ", Filename/binary>>, State = #state{channel = Channel}) ->
+    Msg = ws_anim_channel:load(Channel, Filename),
+    {[Msg], State};
 do(<<"animator list">>, State = #state{channel = Channel}) ->
     Msg = ws_anim_channel:animator_list(Channel),
     {[Msg], State};
