@@ -86,7 +86,14 @@ function animator_server_button(name){
   button.type = "button";
   button.value = name;
   const qsParams = {channel: channel, animator: name};
-  button.addEventListener("click", (event) => { openNewWindow("animation_controls", qsParams) })
+  button.addEventListener("click",
+    (event) => {
+      if('old_window' in button){
+        button.old_window.close();
+        delete button.old_window;
+      }
+      openNewWindow("animation_controls", qsParams, button);
+    })
   document.getElementById("animator_controls_button_div").appendChild(button);
 }
 
@@ -184,7 +191,7 @@ function animationControls(){
   openNewWindow("animation_controls");
 }
 
-function openNewWindow(name, qsParams) {
+function openNewWindow(name, qsParams, button) {
   const top = window.screenTop;
   const left = window.screenLeft;
   const url = `http://localhost:8081/html/${name}.html`;
@@ -194,4 +201,5 @@ function openNewWindow(name, qsParams) {
   newWindow.addEventListener("load", (event) => {
     socket.addEventListener("close", (event) => { newWindow.close(); });
   });
+  button.old_window = newWindow;
 }
