@@ -58,6 +58,7 @@ join(ChannelPid) ->
 leave(ChannelPid) ->
     gen_server:call(ChannelPid, leave).
 
+-spec save(pid(), binary()) -> {reply, list(), #state{}}.
 save(ChannelPid, Filename) ->
     gen_server:call(ChannelPid, {save, Filename}).
 
@@ -94,6 +95,7 @@ subs(ChannelPid) ->
 init(Id) ->
     TableId = ets:new(undefined, [ordered_set]),
     erlang:send_after(?FRAME_MILLIS, self(), send_buffer),
+    self() ! send_files,
     {ok, #state{id = Id, ets_id = TableId}}.
 
 handle_call(join, {From, _}, State = #state{id = Id, sockets = Sockets, subs = Subs}) ->
@@ -108,11 +110,12 @@ handle_call(leave, {From, _}, State = #state{id = Id, sockets = Sockets, subs = 
 handle_call({save, Filename}, {_From, _}, State = #state{animators = Animators}) ->
     States = [ws_anim_animator:get_state(A) || A <- maps:values(Animators)],
     Json = json:encode(States),
-    file:write_file(Filename, Json),
+    file:write_file(<<?SAVE_DIR/binary, Filename/binary>>, Json),
     Log = ?utils:log(<<"ok">>),
+    self() ! send_files,
     {reply, [Log], State};
 handle_call({load, Filename}, {_From, _}, State = #state{animators = Animators}) ->
-    {ok, Bin} = file:read_file(Filename),
+    {ok, Bin} = file:read_file(<<?SAVE_DIR/binary, Filename/binary>>),
     AStates = atomize_keys(json:decode(Bin)),
     [gen_server:stop(A) || A <- maps:values(Animators)],
     [ws_anim_animator:start(AState) || AState <- AStates],
@@ -168,18 +171,21 @@ handle_call({sub, TypeBin}, {From, _}, State = #state{subs = Subs}) ->
             NewState = State#state{subs = NewSubs},
             new_sub(Type, NewState),
             Log = ?utils:log(<<"Subbed to ", TypeBin/binary>>),
+            case Type of
+                info ->
+                    send_files(From);
+                _ ->
+                    ok
+            end,
             {reply, [Log], NewState}
     end;
 handle_call(subs, {From, _}, State = #state{subs = Subs}) ->
-    io:format(user, "From = ~p~n", [From]),
-    io:format(user, "Subs = ~p~n", [Subs]),
     Types = [atom_to_binary(Type) || {Socket, Type} <- Subs, Socket == From],
-    io:format(user, "Types = ~p~n", [Types]),
     IoList = [<<"Subbed to [">>, lists:join(<<", ">>, Types), <<"]">>],
     Log = ?utils:log(iolist_to_binary(IoList)),
     {reply, [Log], State};
 handle_call(_, _From, State) ->
-    {reply, ok, State}.
+    {reply, [], State}.
 
 handle_cast(_, State) ->
     {noreply, State}.
@@ -195,9 +201,17 @@ handle_info(send_buffer, State = #state{subs = Subs, ets_id = EtsId}) ->
     maybe_send_buffer(ets:tab2list(EtsId), Subs),
     ets:delete_all_objects(EtsId),
     {noreply, State#state{buffer = []}};
+handle_info(send_files, State = #state{subs = Subs}) ->
+    [send_files(Socket) || {Socket, info} <- Subs],
+    {noreply, State};
 handle_info(Info, State) ->
     io:format("Received erlang message: ~n~p~n", [Info]),
-    {ok, State}.
+    {noreply, State}.
+
+send_files(Socket) ->
+    {ok, Filenames} = file:list_dir(?SAVE_DIR),
+    InfoJson = ?utils:info(#{filenames => [list_to_binary(F) || F <- Filenames]}),
+    Socket ! {send, InfoJson}.
 
 maybe_send_buffer([], _) ->
     ok;
@@ -234,7 +248,6 @@ decode_animator_add_spec(Spec) ->
     end.
 
 set_animator_field(Spec, #state{animators = Animators}) ->
-    io:format(user, "Animators = ~p~n", [Animators]),
     case decode_animator_set_spec(Spec) of
         {error, Bin} ->
             Error = <<"Invalid animator set command \"", Bin/binary, "\"">>,
@@ -246,7 +259,6 @@ set_animator_field(Spec, #state{animators = Animators}) ->
     end.
 
 set_animator_field(Pid, Field, Value) ->
-    io:format(user, "Pid = ~p~n", [Pid]),
     Pid ! {set, Field, Value}.
 
 decode_animator_set_spec(Spec) ->

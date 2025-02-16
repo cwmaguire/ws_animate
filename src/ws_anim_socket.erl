@@ -17,10 +17,8 @@ websocket_init(_InitState) ->
     Log = ?utils:log(<<"Connected">>),
     {_Response = [{text, Log}], #state{}}.
 
-websocket_handle(Frame = {text, Bin}, State) ->
-    io:format("Received text frame: ~n~p: ~p~n", [self(), Frame]),
+websocket_handle({text, Bin}, State) ->
     {Msgs, NewState} = do(Bin, State),
-    %io:format("Sending back ~p~n", [ReturnText]),
     Return = [{text, Msg} || Msg <- Msgs],
     {Return, NewState};
 websocket_handle(Frame, State) ->

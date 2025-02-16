@@ -9,6 +9,8 @@ var animatorIndex = 1;
 var receive_buffer = [];
 var draw_buffer = [];
 var click_targets = [];
+const saveFileDataListId = 'save_file_datalist';
+const loadFileSelectId = 'load_file_select';
 
 create_canvas_and_controls();
 
@@ -50,25 +52,28 @@ function websocket_close(event){
 }
 
 function load_animations(){
-  const filename = document.querySelector('#animation_filename').value;
+  const filename = document.querySelector('#load_file_select').value;
   socket.send(`channel load ${filename}`);
 }
 
 function save_animations(){
-  const filename = document.querySelector('#animation_filename').value;
+  const saveFileText = document.querySelector('#save_file');
+  const filename = saveFileText.value;
   socket.send(`channel save ${filename}`);
+  saveFileText.value = '';
 }
 
 function info(obj){
   if('channel_name' in obj){
-    console.log(`channel name info: ${event.data}`);
     channel = obj.channel_name;
   }else if('animators' in obj){
-    console.log(`animators info: ${event.data}`)
     animator_buttons(obj.animators);
   }else if('animator_name' in obj){
-    console.log(`animator_name info: ${event.data}`)
     animation_controls_button(obj.animator_name);
+  }else if('filenames' in obj){
+    console.log('Received filenames ...');
+    console.dir(obj);
+    set_filenames(obj.filenames);
   }
 }
 
@@ -232,6 +237,7 @@ function create_canvas_and_controls(){
   animatorButtonDiv = div('animator_controls_div');
   animatorControlsButtonDiv = div('animator_controls_button_div');
 
+
   create_canvas();
   document.body.appendChild(loadSaveDiv);
   document.body.appendChild(animatorButtonDiv);
@@ -260,16 +266,15 @@ function div(id){
 }
 
 function load_save_controls(loadSaveDiv){
-  const loadButton = button('load', load_animations);
-  const saveButton = button('save', save_animations);
-  loadSaveDiv.appendChild(loadButton);
-  loadSaveDiv.appendChild(saveButton);
+  button('load', load_animations);
+  select_list(loadFileSelectId);
+  br();
+  button('save', save_animations);
+  text_with_datalist('save_file', saveFileDataListId, (e) => {});
+}
 
-  const textbox = document.createElement("input");
-  textbox.setAttribute('type', 'text');
-  textbox.id = 'animation_filename';
-  textbox.name =  'animation_filename';
-  loadSaveDiv.appendChild(textbox);
+function br(){
+  document.body.appendChild(document.createElement('br'));
 }
 
 function button(id, clickEventHandler){
@@ -278,9 +283,54 @@ function button(id, clickEventHandler){
   button.id = id;
   button.value = id;
   button.addEventListener('click', clickEventHandler);
-  return button;
+  document.body.appendChild(button);
 }
 
+function text_with_datalist(textId, datalistId, handler){
+  const dl = document.createElement('datalist');
+  dl.id = datalistId;
+  document.body.appendChild(dl);
+
+  const s = document.createElement('input');
+  s.type = 'text'
+  s.setAttribute('list', datalistId);
+  s.id = textId;
+  s.name = textId;
+  document.body.appendChild(s);
+}
+
+function set_filenames(filenames){
+
+  const dl = document.querySelector('#' + saveFileDataListId);
+  const select = document.querySelector('#' + loadFileSelectId);
+
+  while(dl.firstChild){
+    dl.removeChild(dl.firstChild)
+  }
+  while(select.firstChild){
+    select.removeChild(select.firstChild)
+  }
+
+  filenames.forEach((filename) => {
+    dl.appendChild(option(filename));
+    select.appendChild(option(filename));
+  });
+}
+
+function option(text){
+  const o = document.createElement('option');
+  o.value = text;
+  o.textContent = text;
+  return o;
+}
+
+function select_list(id){
+  const s = document.createElement('select');
+  s.id = id;
+  s.name = name;
+
+  document.body.appendChild(s);
+}
 
 function animator_buttons(animators){
   animatorButtonDiv.childNodes.forEach(({child}) => child.remove());
