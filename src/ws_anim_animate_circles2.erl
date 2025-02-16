@@ -15,7 +15,8 @@
                 radius = 300,
                 style = <<"black">>,
                 last_x_y,
-                is_showing_name = false}).
+                is_showing_name = false,
+                lines = []}).
 
 rec_info() -> {record_info(size, state),
                record_info(fields, state)}.
@@ -26,6 +27,7 @@ init(Name, Channel) ->
 animate(Frame,
         State = #state{name = Name,
                        channel = Channel,
+                       lines = Lines,
                        last_x_y = LastXY}) ->
     Circles = [{Name, id(1), ?PI / 4, 41, ?PI / 100},
                {Name, id(2), ?PI / 3, 27, ?PI / 50},
@@ -33,20 +35,20 @@ animate(Frame,
                {Name, id(4), ?PI / 2, 12, ?PI / 12.5},
                {Name, id(5), ?PI / 2, 8, ?PI / 6.25}],
     Acc = {[], {300, 300, 50, Frame}},
-    {BufferObjects, {X2, Y2, _, _}} = lists:foldl(fun circle/2, Acc, Circles),
-    [send(Channel, B) || B <- BufferObjects],
-    case LastXY of
-        {X1, Y1} ->
-            NumLines = 100,
-            LineId = id((Frame rem NumLines) + 6),
-            Line = line(Name, LineId, X1, Y1, X2, Y2),
-            send(Channel, Line);
-        _ ->
-            ok
-    end,
+    {Circles2, {X2, Y2, _, _}} = lists:foldl(fun circle/2, Acc, Circles),
+    Lines2 = lines(LastXY, {X2, Y2}, Name, Lines, Frame),
+    [send(Channel, C) || C <- Circles2],
+    [send(Channel, L) || L <- Lines2],
     maybe_send_name(State),
-    State#state{last_x_y = {X2, Y2}}.
+    State#state{last_x_y = {X2, Y2}, lines = Lines2}.
 
+lines({X1, Y1}, {X2, Y2}, Name, Lines0, Frame) ->
+    NumLines = 100,
+    LineId = id((Frame rem NumLines) + 6),
+    Line = line(Name, LineId, X1, Y1, X2, Y2),
+    lists:sublist([Line | Lines0], NumLines);
+lines(_, _, _, _, _) ->
+    [].
 
 id(X) ->
     ZIndex = 100,
