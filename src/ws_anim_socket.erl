@@ -19,8 +19,14 @@ websocket_init(_InitState) ->
 
 websocket_handle({text, Bin}, State) ->
     {Msgs, NewState} = do(Bin, State),
-    Return = [{text, Msg} || Msg <- Msgs],
-    {Return, NewState};
+    case Msgs of
+        List when is_list(List) ->
+            Return = [{text, Msg} || Msg <- Msgs],
+            {Return, NewState};
+        _ ->
+            io:format("ws_anim_socket:websocket_handle({text, ~p}, State) returned non-list:~n    ~p~n", [Bin, Msgs]),
+            {[], NewState}
+    end;
 websocket_handle(Frame, State) ->
     io:format("Received other frame: ~n~p: ~p~n", [self(), Frame]),
     {ok, State}.

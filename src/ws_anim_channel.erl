@@ -251,11 +251,13 @@ set_animator_field(Spec, #state{animators = Animators}) ->
     case decode_animator_set_spec(Spec) of
         {error, Bin} ->
             Error = <<"Invalid animator set command \"", Bin/binary, "\"">>,
-            ?utils:log(Error);
+            Log = ?utils:log(Error),
+            [Log];
         {ok, Animator, Field, Value} ->
             #{Animator := Pid} = Animators,
             set_animator_field(Pid, Field, Value),
-            ?utils:log(<<"Setting ", Animator/binary, " field ", Field/binary, " to ", Value/binary>>)
+            Log = ?utils:log(<<"Setting ", Animator/binary, " field ", Field/binary, " to ", Value/binary>>),
+            [Log]
     end.
 
 set_animator_field(Pid, Field, Value) ->
