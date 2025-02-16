@@ -188,7 +188,6 @@ function open_new_window(name, qsParams, button) {
   console.log(`Query string for new window: ${qs}`);
   const newWindow = window.open(`${url}?${qs}`, '_blank', `top=${top - 50},left=${left + 50},width=600,height=400,status=1,toolbar=1`);
   newWindow.addEventListener('load', (event) => {
-    socket.addEventListener('close', (event) => { newWindow.close(); });
   });
   button.old_window = newWindow;
 }
@@ -358,11 +357,14 @@ function animation_controls_button(name){
   const qsParams = {channel, animator: name};
   button.addEventListener('click',
     (event) => {
-      if('old_window' in button){
+      if('old_window' in button && button.old_window.closed){
+        delete button.old_window;
+        open_new_window('animation_controls', qsParams, button);
+      }else if('old_window' in button){
         button.old_window.focus();
       }else{
         open_new_window('animation_controls', qsParams, button);
       }
-    })
+    });
   animatorControlsButtonDiv.appendChild(button);
 }
