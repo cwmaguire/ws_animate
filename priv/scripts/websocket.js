@@ -21,6 +21,7 @@ socket.addEventListener('close', websocket_close);
 function websocket_open(event){
   socket.send('channel start');
   socket.send('channel sub draw');
+  socket.send('channel sub info');
   socket.send('animator list');
   requestAnimationFrame(animation_frame);
 }

@@ -1,5 +1,7 @@
 -module(ws_anim_animator).
 
+-include("ws_anim.hrl").
+
 -behaviour(gen_server).
 
 -export([start/1]).
@@ -57,6 +59,7 @@ init({Name, Channel, AnimatorModule}) ->
     erlang:send_after(State#state.frame_millis, self(), animate),
     CurrentTime = erlang:monotonic_time(millisecond),
     AState = AnimatorModule:init(Name, Channel),
+    Channel ! {send, info, ?utils:info(#{animator_name => Name})},
     {ok, State#state{name = Name,
                      channel = Channel,
                      animator_module = AnimatorModule,
