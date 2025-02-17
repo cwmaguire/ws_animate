@@ -1,5 +1,7 @@
 -module(ws_anim_animate_gradient).
 
+-include("ws_anim.hrl").
+
 -export([init/2]).
 -export([animate/2]).
 -export([set/3]).
@@ -81,8 +83,8 @@ square(#state{width = W, height = H}, Frame, Name) ->
     ws_anim_utils:json(SquareMap).
 
 send_controls(State = #state{name = Name, channel = Channel}) ->
-    Channel ! {send, control, textbox(Name, <<"width">>, State#state.width)},
-    Channel ! {send, control, textbox(Name, <<"height">>, State#state.height)},
+    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"width">>, State#state.width),
+    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"height">>, State#state.height),
     State.
 
 textbox(AnimatorName, Field, Value) ->

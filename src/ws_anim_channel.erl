@@ -254,10 +254,15 @@ set_animator_field(Spec, #state{animators = Animators}) ->
             Log = ?utils:log(Error),
             [Log];
         {ok, Animator, Field, Value} ->
-            #{Animator := Pid} = Animators,
-            set_animator_field(Pid, Field, Value),
-            Log = ?utils:log(<<"Setting ", Animator/binary, " field ", Field/binary, " to ", Value/binary>>),
-            [Log]
+            case Animators of
+                #{Animator := Pid} ->
+                    set_animator_field(Pid, Field, Value),
+                    Log = ?utils:log(<<"Setting ", Animator/binary, " field ", Field/binary, " to ", Value/binary>>),
+                    [Log];
+                _ ->
+                    Log = ?utils:log(<<"Animator ", Animator/binary, " not in animators">>),
+                    [Log]
+            end
     end.
 
 set_animator_field(Pid, Field, Value) ->
