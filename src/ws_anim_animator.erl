@@ -181,11 +181,22 @@ avg_frame_time(WindowSeconds, PrevTime, PrevTimes) ->
 get_state(AMod, AState) ->
     {_, [_, _ | Fields]} = AMod:rec_info(),
     [_, _, _ | Values] = tuple_to_list(AState),
-    maps:from_list(lists:zip(Fields, fix(Values))).
+
+    FieldValues = lists:zip(Fields, fix(Values)),
+    Valid = lists:filter(fun skip_field_values/1, FieldValues),
+    maps:from_list(Valid).
+
+skip_field_values({{skip, _Field}, _Value}) ->
+    false;
+skip_field_values(_) ->
+    true.
 
 load_state(AMod, AState, Map) ->
-    {RecordTupleSize, Fields} = AMod:rec_info(),
-    [_RecName | Idxs] = lists:zip([rec_name | Fields], lists:seq(1, RecordTupleSize)),
+    {_, Fields} = AMod:rec_info(),
+    Valid = lists:filter(fun skip_fields/1, Fields),
+    [_RecName | Idxs] =
+        lists:zip([rec_name | Valid],
+                  lists:seq(1, length(Valid) + 1)),
     SetTupleElementFun =
       fun({Key, Idx}, Tuple)
             when Key /= name,
@@ -196,6 +207,11 @@ load_state(AMod, AState, Map) ->
               Tuple
       end,
     lists:foldl(SetTupleElementFun, AState, Idxs).
+
+skip_fields({skip, _Field}) ->
+    false;
+skip_fields(_) ->
+    true.
 
 fix(Values) ->
     [fix_(V) || V <- Values].

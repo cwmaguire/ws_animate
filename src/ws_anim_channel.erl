@@ -117,10 +117,12 @@ handle_call({save, Filename}, {_From, _}, State = #state{animators = Animators})
 handle_call({load, Filename}, {_From, _}, State = #state{animators = Animators}) ->
     {ok, Bin} = file:read_file(<<?SAVE_DIR/binary, Filename/binary>>),
     AStates = atomize_keys(json:decode(Bin)),
-    [gen_server:stop(A) || A <- maps:values(Animators)],
-    [ws_anim_animator:start(AState) || AState <- AStates],
+    %[gen_server:stop(A) || A <- maps:values(Animators)],
+    NewAnimators =
+        lists:foldl(fun start_animator/2, #{}, AStates),
+    Animators2 = maps:merge(NewAnimators, Animators),
     Log = ?utils:log(<<"ok">>),
-    {reply, [Log], State};
+    {reply, [Log], State#state{animators = Animators2}};
 handle_call(animator_list, _From, State) ->
     Info = ?utils:info(#{animators => ?ANIMATOR_NAMES}),
     {reply, [Info], State};
@@ -324,3 +326,7 @@ atomize_keys(K, V, Map) when is_map(V) ->
     maps:put(binary_to_atom(K), atomize_keys(V), Map);
 atomize_keys(K, V, Map) ->
     maps:put(binary_to_atom(K), V, Map).
+
+start_animator(Map = #{name := Name}, Animators) ->
+    {ok, Pid} = ws_anim_animator:start(Map),
+    Animators#{Name => Pid}.

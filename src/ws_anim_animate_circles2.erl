@@ -19,7 +19,12 @@
                 lines = []}).
 
 rec_info() -> {record_info(size, state),
-               record_info(fields, state)}.
+               skip(record_info(fields, state))}.
+
+skip(Fields) ->
+    lists:map(fun(lines) -> {skip, lines};
+                 (F) -> F end,
+              Fields).
 
 init(Name, Channel) ->
     #state{name = Name, channel = Channel}.
@@ -113,7 +118,7 @@ send_controls(State = #state{name = Name, channel = Channel}) ->
 set(<<"radius">>, Value, State) ->
   case catch binary_to_integer(Value) of
       I when is_integer(I) ->
-          io:format(user, "I = ~p~n", [I]),
+          %io:format(user, "I = ~p~n", [I]),
           State#state{radius = I};
       _ ->
           State#state.channel ! {send, log, ws_anim_utils:log(<<"Invalid integer ", Value/binary, " for radius">>)},
