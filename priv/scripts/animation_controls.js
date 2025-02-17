@@ -8,10 +8,14 @@ setup_websocket(channel);
 window.opener.console.log(`Channel: >${channel}<, animator: >${animator}<`);
 
 function setup_divs(){
+  const staticControlDiv = document.createElement('div');
+  staticControlDiv.id = 'static_control_div';
+  document.body.appendChild(staticControlDiv);
+  setup_static_controls();
+
   const controlDiv = document.createElement('div');
   controlDiv.id = 'control_div';
   document.body.appendChild(controlDiv);
-  setup_controls();
 
   const canvasDiv = document.createElement('div');
   convasDiv = 'canvas_div';
@@ -23,13 +27,13 @@ function setup_divs(){
   canvas.style.border = '1px solid black';
   const ctx = canvas.getContext('2d');
   ctx.scale(0.5, 0.5);
-  window.opener.console.log(`Animator ${animator} 2d context tranform:`);
-  window.opener.console.dir(ctx.getTransform());
+  //window.opener.console.log(`Animator ${animator} 2d context tranform:`);
+  //window.opener.console.dir(ctx.getTransform());
   setup_canvas(canvas);
   canvasDiv.appendChild(canvas);
 }
 
-function setup_controls(){
+function setup_static_controls(){
   button('start');
   button('stop');
   br();
@@ -72,21 +76,21 @@ function socketMessage(event){
         buffer_command(obj);
         break;
       case 'control':
-        window.opener.console.log(`animator ${animator} control msg:`);
-        window.opener.console.dir(obj);
-        console.dir(obj);
+        //window.opener.console.log(`animator ${animator} control msg:`);
+        //window.opener.console.dir(obj);
+        //console.dir(obj);
         control(obj);
         break;
       case 'info':
-        window.opener.console.log(`animator ${animator} info msg:`);
-        window.opener.console.dir(obj);
-        console.dir(obj);
+        //window.opener.console.log(`animator ${animator} info msg:`);
+        //window.opener.console.dir(obj);
+        //console.dir(obj);
         info(obj);
         break;
     }
   }else if(!('avg_frame_time' in obj)){
-    window.opener.console.log(`animator ${animator} filtered out command:`);
-    window.opener.console.dir(obj);
+    //window.opener.console.log(`animator ${animator} filtered out command:`);
+    //window.opener.console.dir(obj);
   }
 }
 
@@ -104,7 +108,7 @@ function log(str){
 
 function br(){
   const br = document.createElement('br');
-  document.querySelector('#control_div').appendChild(br);
+  document.querySelector('#static_control_div').appendChild(br);
 }
 
 function button(action){
@@ -114,7 +118,7 @@ function button(action){
   button.value = action;
   const command = `animator ${action} ${animator}`;
   button.addEventListener("click", ({data}) => {send(`${command}`)});
-  document.querySelector('#control_div').appendChild(button);
+  document.querySelector('#static_control_div').appendChild(button);
 }
 
 function timing_label(){
@@ -128,9 +132,9 @@ function timing_label(){
   l.htmlFor = t.id;
 
   const br = document.createElement('br');
-  document.querySelector('#control_div').appendChild(l);
-  document.querySelector('#control_div').appendChild(t);
-  document.querySelector('#control_div').appendChild(br);
+  document.querySelector('#static_control_div').appendChild(l);
+  document.querySelector('#static_control_div').appendChild(t);
+  document.querySelector('#static_control_div').appendChild(br);
 }
 
 function control(Command){

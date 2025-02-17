@@ -156,23 +156,11 @@ avg_frame_time(State = #state{window_secs = WindowSeconds,
 
     State1 = State#state{prev_time = CurrentTime,
                          times = CurrentTimes},
-    TimingInfo = ws_anim_utils:info(#{animator => Name, avg_frame_time => AvgTimeBin}),
+    TimingInfo = ?utils:info(#{name => Name, avg_frame_time => AvgTimeBin}),
     {State1, TimingInfo}.
 
 send_controls(State = #state{name = Name, channel = Channel}) ->
-    Channel ! {send, control, textbox(Name, <<"frame_millis">>, State#state.frame_millis)}.
-
-textbox(AnimatorName, Field, Value) ->
-    Id = <<AnimatorName/binary, "_", Field/binary, "_textbox">>,
-    Textbox = #{type => <<"control">>,
-                cmd => <<"textbox">>,
-                id => Id,
-                name => Id,
-                animator => AnimatorName,
-                field => Field,
-                value => Value,
-                label => <<AnimatorName/binary, " ", Field/binary>>},
-    ws_anim_utils:json(Textbox).
+    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"frame_millis">>, State#state.frame_millis).
 
 avg_frame_time(WindowSeconds, PrevTime, PrevTimes) ->
     CurrentTime = erlang:monotonic_time(millisecond),
