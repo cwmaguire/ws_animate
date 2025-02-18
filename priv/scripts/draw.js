@@ -183,7 +183,7 @@ async function image({ctx}, command){
   const imageSourceX = 0;
   const imageSourceY = 0;
   ctx.drawImage(img, imageSourceX, imageSourceY, img.width, img.height, x, y, imageWidth, imageHeight);
-  add_click_target({...command, type: 'square'});
+  add_click_target({...command, type: 'square', w: imageWidth, h: imageHeight});
 }
 
 function add_click_target(shape){
