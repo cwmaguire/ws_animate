@@ -13,7 +13,8 @@ start(_Type, _Args) ->
                {"/ws", ws_anim_socket, []},
                {"/", cowboy_static, {priv_file, ws_anim, "html/index.html"}},
                {"/scripts/[...]", cowboy_static, {priv_dir, ws_anim, "scripts"}},
-               {"/html/[...]", cowboy_static, {priv_dir, ws_anim, "html"}}]}
+               {"/html/[...]", cowboy_static, {priv_dir, ws_anim, "html"}},
+               {"/images/[...]", cowboy_static, {priv_dir, ws_anim, "images"}}]}
     ]),
 
     cowboy:start_clear(my_http_listener,

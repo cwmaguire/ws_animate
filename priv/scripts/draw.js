@@ -78,6 +78,9 @@ function draw(Command){
     case 'text':
       text(context2dWithDims, Command);
       break;
+    case 'image':
+      image(context2dWithDims, Command);
+      break;
     default:
       console.log(`Ignoring command ${cmd}`);
   }
@@ -135,6 +138,56 @@ function text({ctx}, {text, x, y, font_size, font_color}){
   ctx.font = `${font_size}, 'Courier New', monospace;`;
   ctx.fillStyle = font_color;
   ctx.fillText(text, x, y);
+  // TODO add click target
+  // get calculated font width and height from context2d
+}
+
+function line({ctx}, command){
+  const {x1, y1, x2, y2} = command;
+  ctx.strokStyle = 'black';
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+}
+
+async function loadImage(url, img) {
+  return new Promise((resolve, reject) => {
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+async function image({ctx}, command){
+  const {src, x, y, w_scale: widthScale, h_scale: heightScale, name} = command;
+  const img = document.createElement('img');
+  console.log(`src: ${src}`);
+  console.time('load image');
+
+  await loadImage(src, img);
+
+  console.timeEnd('load image');
+  console.log(`img.src: ${img.src}`);
+  console.dir(img);
+  console.log(`image complete? ${img.complete}`);
+  console.log('Finished loading image');
+  const imageHeight = img.height * heightScale;
+  const imageWidth = img.width * widthScale;
+  const imageSourceX = 0;
+  const imageSourceY = 0;
+  ctx.drawImage(img, imageSourceX, imageSourceY, img.width, img.height, x, y, imageWidth, imageHeight);
+  console.group();
+  console.log(`imageHeight: ${imageHeight}`);
+  console.log(`imageWidth: ${imageWidth}`);
+  console.log(`y: ${y}`);
+  console.log(`x: ${x}`);
+  console.log(`img.width: ${img.width}`);
+  console.log(`img.height: ${img.height}`);
+  console.log(`imageSourceY: ${imageSourceY}`);
+  console.log(`imageSourceX: ${imageSourceX}`);
+  console.groupEnd();
+  add_click_target({...command, type: 'square'});
 }
 
 function add_click_target(shape){
