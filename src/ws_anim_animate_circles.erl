@@ -20,7 +20,7 @@ rec_info() -> {record_info(size, state),
 init(Name, Channel) ->
     #state{name = Name, channel = Channel}.
 
-animate(Frame,
+animate(#{frame := Frame},
         State = #state{name = Name,
                        channel = Channel}) ->
     Id = {_ZIndex = 100, self(), 1},

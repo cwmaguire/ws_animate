@@ -29,7 +29,7 @@ skip(Fields) ->
 init(Name, Channel) ->
     #state{name = Name, channel = Channel}.
 
-animate(Frame,
+animate(#{frame := Frame},
         State = #state{name = Name,
                        channel = Channel,
                        lines = Lines,

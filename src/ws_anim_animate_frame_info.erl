@@ -25,7 +25,7 @@ init(Name, Channel) ->
            channel = Channel,
            prev_time = CurrentTime}.
 
-animate(_Frame,
+animate(_Settings,
         State = #state{channel = Channel}) ->
     ZIndex = 100,
     Id = {ZIndex, self(), 1},

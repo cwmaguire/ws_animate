@@ -21,10 +21,11 @@ rec_info() -> {record_info(size, state),
 init(Name, Channel) ->
     #state{name = Name, channel = Channel}.
 
-animate(Frame,
+animate(#{frame := Frame,
+          z_index := ZIndex},
         State = #state{name = Name,
                        channel = Channel}) ->
-    Id = {_ZIndex = 100, self(), 1},
+    Id = {ZIndex, self(), 1},
     {Image, X, Y} = image(State, Frame, Name),
     Channel ! {buffer, {Id, Image}},
     maybe_send_name(State, X, Y),

@@ -28,7 +28,7 @@ load_state(State, #{width := W, height := H}) ->
 init(Name, Channel) ->
     #state{name = Name, channel = Channel}.
 
-animate(Frame,
+animate(#{frame := Frame},
         State = #state{name = Name,
                        channel = Channel}) ->
     ZIndex = 0,
@@ -86,18 +86,6 @@ send_controls(State = #state{name = Name, channel = Channel}) ->
     ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"width">>, State#state.width),
     ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"height">>, State#state.height),
     State.
-
-textbox(AnimatorName, Field, Value) ->
-    Id = <<AnimatorName/binary, "_", Field/binary, "_textbox">>,
-    Textbox = #{type => <<"control">>,
-                cmd => <<"textbox">>,
-                id => Id,
-                name => Id,
-                animator => AnimatorName,
-                field => Field,
-                value => Value,
-                label => <<AnimatorName/binary, " ", Field/binary>>},
-    ws_anim_utils:json(Textbox).
 
 set(<<"width">>, Value, State) ->
   case catch binary_to_integer(Value) of

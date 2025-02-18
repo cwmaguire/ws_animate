@@ -17,6 +17,7 @@
                 channel = undefined,
                 frame = 1,
                 frame_millis = 50,
+                z_index = 100,
                 animator_module,
                 animator_state,
                 window_secs = 1 :: integer(),
@@ -111,6 +112,13 @@ handle_info({set, Field, Value},
                    _ ->
                        State1
                end;
+            <<"z_index">> ->
+               case catch binary_to_integer(Value) of
+                   I when is_integer(I) ->
+                       State1#state{z_index = I};
+                   _ ->
+                       State1
+               end;
             _ ->
                 State1
         end,
@@ -135,11 +143,14 @@ handle_info(unfreeze, State) ->
 animate(State = #state{channel = Channel,
                        frame = Frame,
                        frame_millis = FrameMillis,
+                       z_index = ZIndex,
                        animator_state = AState,
                        animator_module = AMod}) ->
 
     erlang:send_after(FrameMillis, self(), animate),
-    AState1 = AMod:animate(Frame, AState),
+    Settings = #{frame => Frame,
+                 z_index => ZIndex},
+    AState1 = AMod:animate(Settings, AState),
 
     {State1, TimingInfo} = avg_frame_time(State),
     Channel ! {send, info, TimingInfo},
@@ -160,7 +171,8 @@ avg_frame_time(State = #state{window_secs = WindowSeconds,
     {State1, TimingInfo}.
 
 send_controls(State = #state{name = Name, channel = Channel}) ->
-    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"frame_millis">>, State#state.frame_millis).
+    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"frame_millis">>, State#state.frame_millis),
+    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"z_index">>, State#state.z_index).
 
 avg_frame_time(WindowSeconds, PrevTime, PrevTimes) ->
     CurrentTime = erlang:monotonic_time(millisecond),
