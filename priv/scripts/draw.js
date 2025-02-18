@@ -1,9 +1,10 @@
 'use strict';
 var canvas;
 var context2dWithDims;
-var receive_buffer = [];
-var draw_buffer = [];
-var click_targets = [];
+var receiveBuffer = [];
+var drawBuffer = [];
+var clickTargets = [];
+const loadedImages = new Map;
 
 function setup_canvas(canvas_, shouldAddClickTargeting = false){
   canvas = canvas_;
@@ -36,11 +37,34 @@ requestAnimationFrame(animation_frame);
 
 function buffer_command(obj){
   if(obj.cmd == 'finish'){
-    draw_buffer = receive_buffer;
-    receive_buffer = [];
+    drawBuffer = receiveBuffer;
+    receiveBuffer = [];
   }else{
-    receive_buffer.push(obj);
+    maybe_wait_image(obj);
+    receiveBuffer.push(obj);
   }
+}
+
+async function maybe_wait_image(drawCommand){
+  const {cmd, src} = drawCommand;
+  if(cmd == 'image' && !loadedImages.has(src)){
+    const img = document.createElement('img');
+    console.time('load image');
+    await load_image(img, src);
+    console.timeEnd('load image');
+    loadedImages.set(src, img);
+    drawCommand.img = img;
+  }else if(cmd == 'image'){
+    drawCommand.img = loadedImages.get(src);
+  }
+}
+
+function load_image(img, url) {
+  return new Promise((resolve, reject) => {
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = url;
+  });
 }
 
 function animation_frame(_timestamp){
@@ -49,8 +73,8 @@ function animation_frame(_timestamp){
 }
 
 function render_buffer(_timestamp){
-  const buffer = draw_buffer;
-  draw_buffer = [];
+  const buffer = drawBuffer;
+  drawBuffer = [];
   buffer.forEach(draw);
 }
 
@@ -88,7 +112,7 @@ function draw(Command){
 
 function clear({ctx, w, h}){
   ctx.clearRect(0, 0, w, h);
-  click_targets = [];
+  clickTargets = [];
 }
 
 function square({ctx}, command){
@@ -151,56 +175,27 @@ function line({ctx}, command){
   ctx.stroke();
 }
 
-async function loadImage(url, img) {
-  return new Promise((resolve, reject) => {
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = url;
-  });
-}
-
 async function image({ctx}, command){
-  const {src, x, y, w_scale: widthScale, h_scale: heightScale, name} = command;
-  const img = document.createElement('img');
-  console.log(`src: ${src}`);
-  console.time('load image');
-
-  await loadImage(src, img);
-
-  console.timeEnd('load image');
-  console.log(`img.src: ${img.src}`);
-  console.dir(img);
-  console.log(`image complete? ${img.complete}`);
-  console.log('Finished loading image');
+  const {img, x, y, w_scale: widthScale, h_scale: heightScale, name} = command;
   const imageHeight = img.height * heightScale;
   const imageWidth = img.width * widthScale;
   const imageSourceX = 0;
   const imageSourceY = 0;
   ctx.drawImage(img, imageSourceX, imageSourceY, img.width, img.height, x, y, imageWidth, imageHeight);
-  console.group();
-  console.log(`imageHeight: ${imageHeight}`);
-  console.log(`imageWidth: ${imageWidth}`);
-  console.log(`y: ${y}`);
-  console.log(`x: ${x}`);
-  console.log(`img.width: ${img.width}`);
-  console.log(`img.height: ${img.height}`);
-  console.log(`imageSourceY: ${imageSourceY}`);
-  console.log(`imageSourceX: ${imageSourceX}`);
-  console.groupEnd();
   add_click_target({...command, type: 'square'});
 }
 
 function add_click_target(shape){
-  click_targets.unshift(shape);
+  clickTargets.unshift(shape);
 }
 
 function get_click_target(event){
-  const temp_click_targets = click_targets.slice();
+  const tempClickTargets = clickTargets.slice();
   const {offsetX: x, offsetY: y} = event;
-  const is_click_target_ = (ct) => is_click_target(ct, {x, y});
-  const maybe_click_target = temp_click_targets.filter(is_click_target_)[0];
-  if(maybe_click_target){
-    document.querySelector(`#animator_controls_button_${maybe_click_target.name}`).click();
+  const isClickTargetFun = (ct) => is_click_target(ct, {x, y});
+  const maybeClickTarget = tempClickTargets.filter(isClickTargetFun)[0];
+  if(maybeClickTarget){
+    document.querySelector(`#animator_controls_button_${maybeClickTarget.name}`).click();
   }
 }
 

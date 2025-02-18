@@ -32,13 +32,14 @@ animate(Frame,
 
 image(State, Frame, Name) ->
     FramesPerWidth = 100,
-    Frame0 = Frame rem (2 * FramesPerWidth),
-    X0 = trunc(800 / FramesPerWidth),
-    X = case Frame0 of
+    CycleFrame = Frame rem (2 * FramesPerWidth),
+    HalfCycleFrame = Frame rem (FramesPerWidth),
+    X0 = trunc(600 / FramesPerWidth) * HalfCycleFrame,
+    X = case CycleFrame of
              F when F < FramesPerWidth ->
                  X0;
              _ ->
-                 800 - X0
+                 600 - X0
          end,
     Y = 100,
     Map = #{type => <<"draw">>,
