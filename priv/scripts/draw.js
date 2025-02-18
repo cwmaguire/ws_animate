@@ -5,6 +5,7 @@ var receiveBuffer = [];
 var drawBuffer = [];
 var clickTargets = [];
 const loadedImages = new Map;
+const PATH_TO_IMAGES = 'images/';
 
 function setup_canvas(canvas_, shouldAddClickTargeting = false){
   canvas = canvas_;
@@ -49,9 +50,9 @@ async function maybe_wait_image(drawCommand){
   const {cmd, src} = drawCommand;
   if(cmd == 'image' && !loadedImages.has(src)){
     const img = document.createElement('img');
-    console.time('load image');
-    await load_image(img, src);
-    console.timeEnd('load image');
+    console.time(`load image ${src}`);
+    await load_image(img, PATH_TO_IMAGES + src);
+    console.timeEnd(`load image ${src}`);
     loadedImages.set(src, img);
     drawCommand.img = img;
   }else if(cmd == 'image'){

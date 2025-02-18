@@ -10,7 +10,7 @@
 
 -record(state, {name,
                 channel = undefined,
-                src = <<"images/cloak.png">>,
+                src = <<"cloak.png">>,
                 width_scale = 1.0,
                 height_scale = 1.0,
                 is_showing_name = false}).
@@ -75,10 +75,15 @@ maybe_send_name(_, _, _) ->
 
 send_controls(State = #state{name = Name, channel = Channel}) ->
     ?utils:send_input_control(Channel, Name, <<"checkbox">>, <<"is_showing_name">>, State#state.is_showing_name),
+    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"src">>, State#state.src),
     ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"width_scale">>, State#state.width_scale),
     ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"height_scale">>, State#state.height_scale),
     State.
 
+set(<<"src">>, Value, State) ->
+    % TODO add validation on filename unless URL
+    % (draw.js is currently hardcoded to previx the filename with 'images/')
+    State#state{src = Value};
 set(<<"width_scale">>, Value, State) ->
   case catch binary_to_float(Value) of
       F when is_float(F) ->
