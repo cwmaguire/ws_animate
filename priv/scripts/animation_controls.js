@@ -1,25 +1,36 @@
 "use string";
 
-// Create WebSocket connection.
-var socket;
-var {channel, animator} = qsParams();
-setup_divs();
-setup_websocket(channel);
-window.opener.console.log(`Channel: >${channel}<, animator: >${animator}<`);
+function animation_controls_start(channel,
+                                  animator,
+                                  element = document.body,
+                                  hasCanvas = false){
+  const context = {channel, animator, element, hasCanvas};
+  setup_divs(context);
+  setup_websocket(context);
+}
 
-function setup_divs(){
+function setup_divs(context){
+  const {animator, element} = context;
   const staticControlDiv = document.createElement('div');
-  staticControlDiv.id = 'static_control_div';
-  document.body.appendChild(staticControlDiv);
-  setup_static_controls();
+  staticControlDiv.id = `${animator}_static_control_div`;
+  setup_static_controls(context, staticControlDiv);
+  element.appendChild(staticControlDiv);
 
   const controlDiv = document.createElement('div');
-  controlDiv.id = 'control_div';
-  document.body.appendChild(controlDiv);
+  controlDiv.id = `${animator}_control_div`;
+  element.appendChild(controlDiv);
+  context.controlDiv = controlDiv;
 
+  if(context.hasCanvas){
+    canvas(context);
+  }
+}
+
+function canvas(context){
   const canvasDiv = document.createElement('div');
-  convasDiv = 'canvas_div';
-  document.body.appendChild(canvasDiv);
+  canvasDiv.id = 'canvas_div';
+  context.element.appendChild(canvasDiv);
+
   const canvas = document.createElement('canvas');
   canvas.id = 'canvas1';
   canvas.width = 400;
@@ -33,139 +44,129 @@ function setup_divs(){
   canvasDiv.appendChild(canvas);
 }
 
-function setup_static_controls(){
-  button('start');
-  button('stop');
-  br();
-  button('freeze');
-  button('unfreeze');
-  br();
-  timing_label();
+function setup_static_controls(context){
+  const {animator, element} = context;
+  const add = (e) => {element.appendChild(e)};
+  const br = () => document.createElement('br');
+
+  add(controls_button(context, 'start'));
+  add(controls_button(context, 'stop'));
+  add(br());
+  add(controls_button(context, 'freeze'));
+  add(controls_button(context, 'unfreeze'));
+  add(br());
+  add(timing_label(context));
 }
 
-function qsParams() {
-    // window.location.search: Sets or returns the querystring part of a URL
-    const params = new URLSearchParams(window.location.search);
-    return {channel: params.get('channel'), animator: params.get('animator')};
+function setup_websocket(context){
+  const {element} = context;
+  const socket = new WebSocket("ws://localhost:8081/ws");
+  context.socket = socket;
+  socket.addEventListener("open", socket_open_listener(context));
+  socket.addEventListener("message", socket_message_listener(context));
+  socket.addEventListener("error", socket_error);
+  socket.addEventListener("close", socket_close);
+
+  function socket_error(event){
+    console.log("Websocket error: ", event);
+  }
+
+  function socket_close(event){
+    console.log("Websocket close. Code: ", event.code, ". Reason: ", event.reason, ". Clean? ", event.wasClean);
+  }
+
 }
 
-function setup_websocket(channel){
-  socket = new WebSocket("ws://localhost:8081/ws");
-  socket.addEventListener("open", socketOpenListener(channel));
-  socket.addEventListener("message", socketMessage);
-  socket.addEventListener("error", socketError);
-  socket.addEventListener("close", socketClose);
-}
-
-function socketOpenListener(channel){
+function socket_open_listener({socket, channel}){
   return (event) => {
     console.log("Opened socket, sending commands");
     socket.send(`channel join ${channel}`);
     socket.send("channel sub info");
     socket.send("channel sub control");
     socket.send("channel sub draw");
-  }
+  };
 }
 
-function socketMessage(event){
-  const obj = JSON.parse(event.data);
-  const {name: commandAnimator, type, cmd} = obj;
-  if(animator == commandAnimator || cmd == 'finish' || cmd == 'clear'){
-    switch(type){
-      case 'draw':
-        buffer_command(obj);
-        break;
-      case 'control':
-        //window.opener.console.log(`animator ${animator} control msg:`);
-        //window.opener.console.dir(obj);
-        //console.dir(obj);
-        control(obj);
-        break;
-      case 'info':
-        //window.opener.console.log(`animator ${animator} info msg:`);
-        //window.opener.console.dir(obj);
-        //console.dir(obj);
-        info(obj);
-        break;
+function socket_message_listener(context){
+  const {animator, hasCanvas} = context;
+  return (event) => {
+    const obj = JSON.parse(event.data);
+    const {name: commandAnimator, type, cmd} = obj;
+    if(animator == commandAnimator || cmd == 'finish' || cmd == 'clear'){
+      switch(type){
+        case 'draw':
+          if(hasCanvas){
+            buffer_command(obj);
+          }
+          break;
+        case 'control':
+          control(obj, context);
+          break;
+        case 'info':
+          info(obj, context);
+          break;
+      }
     }
-  }else if(!('avg_frame_time' in obj)){
-    //window.opener.console.log(`animator ${animator} filtered out command:`);
-    //window.opener.console.dir(obj);
-  }
+  };
 }
 
-function socketError(event){
-  console.log("Websocket error: ", event);
-}
-
-function socketClose(event){
-  console.log("Websocket close. Code: ", event.code, ". Reason: ", event.reason, ". Clean? ", event.wasClean);
-}
-
-function log(str){
-  console.log(str);
-}
-
-function br(){
-  const br = document.createElement('br');
-  document.querySelector('#static_control_div').appendChild(br);
-}
-
-function button(action){
+function controls_button({animator}, action){
   const button = document.createElement("input");
   button.type = "button";
   button.id = `${animator}_${action}`;
   button.value = action;
   const command = `animator ${action} ${animator}`;
   button.addEventListener("click", ({data}) => {send(`${command}`)});
-  document.querySelector('#static_control_div').appendChild(button);
+  return button;
 }
 
-function timing_label(){
+function timing_label({animator}){
   const t = document.createElement("input");
-  t.setAttribute("type", "text");
-  t.id = 'timing';
-  t.name = 'timing';
+  t.type = "text";
+  t.id = `${animator}_timing`;
   t.value = '';
   const l = document.createElement('label');
   l.textContent = 'timing';
   l.htmlFor = t.id;
 
   const br = document.createElement('br');
-  document.querySelector('#static_control_div').appendChild(l);
-  document.querySelector('#static_control_div').appendChild(t);
-  document.querySelector('#static_control_div').appendChild(br);
+  const div = document.createElement('div');
+  div.appendChild(l);
+  div.appendChild(t);
+  div.appendChild(br);
+  return div;
 }
 
-function control(Command){
+function control(Command, context){
   const {cmd} = Command;
-  //console.log(`Command.cmd ${Command.cmd}`);
-  //console.log(`cmd is '${cmd}', ${typeof cmd}`);
   switch(cmd){
     case "clear":
-      clear_controls();
+      console.log(`${context.animator} clear`);
+      clear_controls(context);
       break;
     case "select":
-      select(Command);
+      controls_select(Command, context);
       break;
     case "textbox":
     case "color":
     case "checkbox":
-      input(Command);
+      console.log(`${context.animator} ${cmd}`);
+      controls_input(Command, context);
       break;
     default:
       console.log(`Ignoring command ${cmd}`);
   }
 }
 
-function info(msg){
+function info(msg, {animator, element}){
   if("avg_frame_time" in msg){
-     document.getElementById('timing').value = msg.avg_frame_time;
+    const input = element.querySelector(`#${animator}_timing`);
+    input.value = msg.avg_frame_time;
   }
 }
 
-function clear_controls(){
-  remove_all_children(document.querySelector('#control_div'));
+function clear_controls({controlDiv}){
+  remove_all_children(controlDiv);
 }
 
 function remove_all_children(e){
@@ -174,7 +175,7 @@ function remove_all_children(e){
   }
 }
 
-function select({id, name, label, options}){
+function controls_select({id, name, label, options}, {controlDiv}){
 
   const s = document.createElement('select');
   s.id = id;
@@ -195,12 +196,12 @@ function select({id, name, label, options}){
 
   const br = document.createElement('br');
 
-  document.querySelector('#control_div').appendChild(l);
-  document.querySelector('#control_div').appendChild(s);
-  document.querySelector('#control_div').appendChild(br);
+  controlDiv.appendChild(l);
+  controlDiv.appendChild(s);
+  controlDiv.appendChild(br);
 }
 
-function input(object){
+function controls_input(object, {controlDiv, element}){
   const i = document.createElement("input");
   i.setAttribute("type", object.cmd);
   i.id = object.id;
@@ -214,19 +215,15 @@ function input(object){
   const command = `animator set ${object.name} ${object.field}`;
   let eventHandler;
   if(object.cmd == 'checkbox'){
-    eventHandler = () => send(`${command} ${i.checked}`);
+    eventHandler = () => socket.send(`${command} ${i.checked}`);
   }else{
-    eventHandler = () => send(`${command} ${i.value}`);
+    eventHandler = () => socket.send(`${command} ${i.value}`);
   }
   i.addEventListener("change", eventHandler);
 
   const br = document.createElement('br');
 
-  document.querySelector('#control_div').appendChild(l);
-  document.querySelector('#control_div').appendChild(i);
-  document.querySelector('#control_div').appendChild(br);
-}
-
-function send(text){
-  socket.send(text);
+  controlDiv.appendChild(l);
+  controlDiv.appendChild(i);
+  controlDiv.appendChild(br);
 }

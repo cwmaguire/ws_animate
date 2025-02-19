@@ -5,12 +5,14 @@ var canvas;
 var loadSaveDiv;
 var animatorButtonDiv;
 var animatorControlsButtonDiv;
+var animatorControlsDiv;
 var animatorIndex = 1;
 var receive_buffer = [];
 var draw_buffer = [];
 var click_targets = [];
 const saveFileDataListId = 'save_file_datalist';
 const loadFileSelectId = 'load_file_select';
+const controlWindows = [];
 
 create_canvas_and_controls();
 
@@ -110,9 +112,15 @@ function create_canvas_and_controls(){
   loadSaveDiv = div('load_save_div');
   load_save_controls(loadSaveDiv);
 
-  animatorButtonDiv = div('animator_controls_div');
+  animatorButtonDiv = div('animator_button_div');
   animatorControlsButtonDiv = div('animator_controls_button_div');
 
+  animatorControlsDiv = div('animator_controls_div')
+  animatorControlsDiv.style.left = '700px';
+  animatorControlsDiv.style.top = '200px';
+  animatorControlsDiv.style.width = '310px';
+  animatorControlsDiv.style.position = 'absolute';
+  animatorControlsDiv.style.border = '1px solid red';
 
   create_canvas();
   document.body.appendChild(loadSaveDiv);
@@ -230,7 +238,7 @@ function animation_controls_button(name){
   const qsParams = {channel, animator: name};
   button.addEventListener('click',
     (event) => {
-      if('old_window' in button && button.old_window.closed){
+      if(button.old_window?.closed){
         delete button.old_window;
         open_new_window('animation_controls', qsParams, button);
       }else if('old_window' in button){
@@ -238,6 +246,22 @@ function animation_controls_button(name){
       }else{
         open_new_window('animation_controls', qsParams, button);
       }
+
+      if(!button.old_div){
+        add_animation_controls_div(channel, name);
+      }
     });
   animatorControlsButtonDiv.appendChild(button);
+}
+
+function add_animation_controls_div(channel, name){
+  const div = document.createElement('div');
+  div.style.width = '300px';
+  div.style.border = '1px solid blue';
+  animation_controls_start(channel, name, div, false);
+  animatorControlsDiv.appendChild(div);
+  controlWindows.unshift(div);
+  while(controlWindows.length > 2){
+    controlWindows.pop().remove();
+  }
 }
