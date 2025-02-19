@@ -63,6 +63,10 @@ Add an Animator
 6. Add an animate function
 7. Send {buffer, draw, <JSON>} to the channel that started the animation process as often as you'd like
 
+Project Plan
+-----
+![Example Setups Diagram](doc/ws_anim_ideas_2025-02-13.png "Project Planning Document")
+
 Sequence Diagram
 -----
 ![Sequence Diagram](doc/ws_animate_sequence_2025-02-09.drawio.png "Sequence Diagram")
