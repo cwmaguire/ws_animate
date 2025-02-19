@@ -110,13 +110,14 @@ function socket_message_listener(context){
   };
 }
 
-function controls_button({animator}, action){
+function controls_button(context, action){
+  const {animator} = context
   const button = document.createElement("input");
   button.type = "button";
   button.id = `${animator}_${action}`;
   button.value = action;
   const command = `animator ${action} ${animator}`;
-  button.addEventListener("click", ({data}) => {send(`${command}`)});
+  button.addEventListener("click", ({data}) => {context.socket.send(`${command}`)});
   return button;
 }
 
