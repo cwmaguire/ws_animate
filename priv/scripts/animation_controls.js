@@ -202,7 +202,8 @@ function controls_select({id, name, label, options}, {controlDiv}){
   controlDiv.appendChild(br);
 }
 
-function controls_input(object, {controlDiv, element}){
+function controls_input(object, context){
+  const {controlDiv, element} = context;
   const i = document.createElement("input");
   i.setAttribute("type", object.cmd);
   i.id = object.id;
@@ -216,9 +217,9 @@ function controls_input(object, {controlDiv, element}){
   const command = `animator set ${object.name} ${object.field}`;
   let eventHandler;
   if(object.cmd == 'checkbox'){
-    eventHandler = () => socket.send(`${command} ${i.checked}`);
+    eventHandler = () => context.socket.send(`${command} ${i.checked}`);
   }else{
-    eventHandler = () => socket.send(`${command} ${i.value}`);
+    eventHandler = () => context.socket.send(`${command} ${i.value}`);
   }
   i.addEventListener("change", eventHandler);
 

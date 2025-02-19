@@ -12,8 +12,12 @@
 
 -record(state, {name,
                 channel = undefined,
-                radius = 300,
+                radius = 70,
+                num_circles = 4,
+                num_lines = 50,
                 style = <<"black">>,
+                x = 350,
+                y = 300,
                 last_x_y,
                 is_showing_name = false,
                 lines = []}).
@@ -33,26 +37,26 @@ animate(#{frame := Frame},
         State = #state{name = Name,
                        channel = Channel,
                        lines = Lines,
+                       num_lines = NumLines,
+                       num_circles = NumCircles,
+                       radius = Radius,
+                       x = X,
+                       y = Y,
                        last_x_y = LastXY}) ->
-    Circles = [{Name, id(1), ?PI / 4, 41, ?PI / 100},
-               {Name, id(2), ?PI / 3, 27, ?PI / 50},
-               {Name, id(3), ?PI / 2, 18, ?PI / 25},
-               {Name, id(4), ?PI / 2, 12, ?PI / 12.5},
-               {Name, id(5), ?PI / 2, 8, ?PI / 6.25}],
-    Acc = {[], {300, 300, 50, Frame}},
-    {Circles2, {X2, Y2, _, _}} = lists:foldl(fun circle/2, Acc, Circles),
-    Lines2 = lines(LastXY, {X2, Y2}, Name, Lines, Frame),
+
+    {Circles2, {X2, Y2}} = circles(Frame, Name, NumCircles, Radius, X, Y, []),
+
+    Lines2 = lines(LastXY, {X2, Y2}, Name, NumLines, Lines, Frame),
     [send(Channel, C) || C <- Circles2],
     [send(Channel, L) || L <- Lines2],
     maybe_send_name(State),
     State#state{last_x_y = {X2, Y2}, lines = Lines2}.
 
-lines({X1, Y1}, {X2, Y2}, Name, Lines0, Frame) ->
-    NumLines = 100,
+lines({X1, Y1}, {X2, Y2}, Name, NumLines, Lines0, Frame) ->
     LineId = id((Frame rem NumLines) + 6),
     Line = line(Name, LineId, X1, Y1, X2, Y2),
     lists:sublist([Line | Lines0], NumLines);
-lines(_, _, _, _, _) ->
+lines(_, _, _, _, _, _) ->
     [].
 
 id(X) ->
@@ -62,21 +66,33 @@ id(X) ->
 send(Channel, BufferObject) ->
     Channel ! {buffer, BufferObject}.
 
-circle({Name, Id, StartAngle, Radius, Rate}, Acc) ->
-    {Circles, {PrevX, PrevY, PrevRad, Frame}} = Acc,
-    NextAngle = StartAngle + math:fmod((Rate * Frame), 2 * ?PI),
-    X = trunc(PrevX + (math:cos(NextAngle) * (PrevRad + Radius))),
-    Y = trunc(PrevY + (math:sin(NextAngle) * (PrevRad + Radius))),
-    Map = #{type => <<"draw">>,
-            cmd => <<"circle">>,
-            x => X,
-            y => Y,
-            r => Radius,
-            style => <<"black">>,
-            name => Name},
+-define(CIRCLE(Name), #{type => <<"draw">>,
+                        cmd => <<"circle">>,
+                        style => <<"black">>,
+                        name => Name}).
+
+circles(_, _, 0, _, X, Y, Circles) ->
+    {Circles, {X, Y}};
+circles(Frame, Name, NumCircles, PrevRadius, PrevX, PrevY, Circles = []) ->
+    Map0 = ?CIRCLE(Name),
+    Map = Map0#{x => PrevX,
+                y => PrevY,
+                r => PrevRadius},
     DrawInstruction = ws_anim_utils:json(Map),
-    Circle = {Id, DrawInstruction},
-    {[Circle | Circles], {X, Y, Radius, Frame}}.
+    Circle = {id(NumCircles), DrawInstruction},
+    circles(Frame, Name, NumCircles - 1, PrevRadius, PrevX, PrevY, [Circle | Circles]);
+circles(Frame, Name, NumCircles, PrevRadius, PrevX, PrevY, Circles) ->
+    Radius = (1 - (1 / NumCircles)) * PrevRadius,
+    NextAngle = math:fmod(((1/NumCircles) * Frame), 2 * ?PI),
+    X = trunc(PrevX + (math:cos(NextAngle) * (PrevRadius + Radius))),
+    Y = trunc(PrevY + (math:sin(NextAngle) * (PrevRadius + Radius))),
+    Map0 = ?CIRCLE(Name),
+    Map = Map0#{x => X,
+                y => Y,
+                r => Radius},
+    DrawInstruction = ws_anim_utils:json(Map),
+    Circle = {id(NumCircles), DrawInstruction},
+    circles(Frame, Name, NumCircles - 1, Radius, X, Y, [Circle | Circles]).
 
 line(Name, Id, X1, Y1, X2, Y2) ->
     Map = #{type => <<"draw">>,
@@ -112,16 +128,33 @@ maybe_send_name(_) ->
 send_controls(State = #state{name = Name, channel = Channel}) ->
     ?utils:send_input_control(Channel, Name, <<"checkbox">>, <<"is_showing_name">>, State#state.is_showing_name),
     ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"radius">>, State#state.radius),
+    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"#_circles">>, State#state.num_circles),
+    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"#_lines">>, State#state.num_lines),
     ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"style">>, State#state.style),
+    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"x">>, State#state.x),
+    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"y">>, State#state.y),
     State.
 
-set(<<"radius">>, Value, State) ->
+-define(INT_SETTING(S), fun(State_) -> State_#state{S = I} end).
+
+-define(INT_SETTINGS, #{<<"radius">> => ?INT_SETTING(radius),
+                        <<"#_circles">> => ?INT_SETTING(num_circles),
+                        <<"#_lines">> => ?INT_SETTING(num_lines),
+                        <<"x">> => ?INT_SETTING(x),
+                        <<"y">> => ?INT_SETTING(y)}).
+
+set(Setting, Value, State)
+  when Setting == <<"radius">>;
+       Setting == <<"#_circles">>;
+       Setting == <<"#_lines">>;
+       Setting == <<"x">>;
+       Setting == <<"y">> ->
   case catch binary_to_integer(Value) of
       I when is_integer(I) ->
-          %io:format(user, "I = ~p~n", [I]),
-          State#state{radius = I};
+          #{Setting := Fun} = ?INT_SETTINGS,
+          Fun(State);
       _ ->
-          State#state.channel ! {send, log, ws_anim_utils:log(<<"Invalid integer ", Value/binary, " for radius">>)},
+          State#state.channel ! {send, log, ws_anim_utils:log(<<"Invalid integer ", Value/binary, " for ", Setting/binary>>)},
           State
   end;
 set(<<"style">>, Value, State) ->
