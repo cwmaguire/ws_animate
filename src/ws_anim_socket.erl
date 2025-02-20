@@ -34,9 +34,12 @@ websocket_handle(Frame, State) ->
 websocket_info({send, Text}, State) ->
     {[{text, Text}], State};
 websocket_info(Info, State) ->
-    io:format("Received erlang message: ~n~p~n", [Info]),
+    io:format("Socket: Received erlang message: ~n~p~n", [Info]),
     {ok, State}.
 
+do(<<"registry sub channels">>, State) ->
+    Msgs = ws_anim_channel_registry:sub(<<"channels">>),
+    {Msgs, State};
 do(<<"channel name">>, State = #state{channel = undefined}) ->
     Log = ?utils:log(<<"Not joined to channel">>),
     {[Log], State};

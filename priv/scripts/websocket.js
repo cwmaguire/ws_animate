@@ -2,6 +2,7 @@
 var context2dWithDims;
 var channel;
 var canvas;
+var channelControlsDiv;
 var loadSaveDiv;
 var animatorButtonDiv;
 var animatorControlsButtonDiv;
@@ -10,23 +11,29 @@ var animatorIndex = 1;
 var receive_buffer = [];
 var draw_buffer = [];
 var click_targets = [];
+const channelSelectId = 'channel_select';
 const saveFileDataListId = 'save_file_datalist';
 const loadFileSelectId = 'load_file_select';
-const controlWindows = [];
+const controlPanels = [];
 
 create_canvas_and_controls();
+const socket = create_socket();
 
-const socket = new WebSocket('ws://localhost:8081/ws');
-socket.addEventListener('open', websocket_open);
-socket.addEventListener('message', websocket_message);
-socket.addEventListener('error', websocket_error);
-socket.addEventListener('close', websocket_close);
+function create_socket(){
+  const socket = new WebSocket('ws://localhost:8081/ws');
+  socket.addEventListener('open', websocket_open);
+  socket.addEventListener('message', websocket_message);
+  socket.addEventListener('error', websocket_error);
+  socket.addEventListener('close', websocket_close);
+  return socket;
+}
 
 function websocket_open(event){
   socket.send('channel start');
   socket.send('channel sub draw');
   socket.send('channel sub info');
   socket.send('animator list');
+  socket.send('registry sub channels');
   requestAnimationFrame(animation_frame);
 }
 
@@ -40,7 +47,7 @@ function websocket_message(event){
       info(obj);
       break;
     case 'log':
-      console.log(obj.log);
+      console.log('Server: ' + obj.log);
       break;
   }
 }
@@ -76,6 +83,23 @@ function info(obj){
     console.log('Received filenames ...');
     console.dir(obj);
     set_filenames(obj.filenames);
+  }else if('channel' in obj){
+    console.log('Received channel ...');
+    console.dir(obj);
+    if(obj.channel != channel){
+      add_channel(obj.channel);
+    }else{
+      console.log(`Not adding channel ${obj.channel} because we're in it (${channel})`);
+    }
+  }else if(obj?.info == 'clear_channels'){
+    console.log('Received clear channels');
+    clear_channels();
+  }else if(obj?.info == 'clear_animator_names'){
+    console.log('Received clear animator names');
+    clear_animator_names();
+  }else{
+    console.log('Server: unrecognized message ...');
+    console.dir(obj);
   }
 }
 
@@ -88,8 +112,8 @@ function open_new_window(name, qsParams, button) {
   const newWindow = window.open(`${url}?${qs}`,
     '_blank',
     `top=${top - 50},left=${left + 50},width=800,height=700,status=1,toolbar=1`);
-  newWindow.addEventListener('load', (event) => {
-  });
+  // XXX Not sure what this was for
+  //newWindow.addEventListener('load', (event) => { });
   button.old_window = newWindow;
 }
 
@@ -108,53 +132,83 @@ function get_click_target(event){
 }
 
 function create_canvas_and_controls(){
+  channel_controls_div();
+  load_save_controls_div();
+  animator_button_div();
+  animator_controls_button_div();
+  add_canvas();
+  animator_controls_fifo_panel();
+}
 
-  loadSaveDiv = div('load_save_div');
-  load_save_controls(loadSaveDiv);
+function channel_controls_div(){
+  add_populate('channel_div', channel_controls);
+}
 
+function channel_controls(channelControlsDiv){
+  return [button('join', switch_channel),
+          select_list(channelSelectId)];
+}
+
+function load_save_controls_div(){
+  add_populate('load_save_div', load_save_controls);
+}
+
+function animator_button_div(){
   animatorButtonDiv = div('animator_button_div');
-  animatorControlsButtonDiv = div('animator_controls_button_div');
+  document.body.appendChild(animatorButtonDiv);
+}
 
+function animator_controls_button_div(){
+  animatorControlsButtonDiv = div('animator_controls_button_div');
+  document.body.appendChild(animatorControlsButtonDiv);
+}
+
+function animator_controls_fifo_panel(){
   animatorControlsDiv = div('animator_controls_div')
   animatorControlsDiv.style.left = '700px';
   animatorControlsDiv.style.top = '200px';
   animatorControlsDiv.style.width = '310px';
   animatorControlsDiv.style.position = 'absolute';
   animatorControlsDiv.style.border = '1px solid red';
-
-  create_canvas();
-  document.body.appendChild(loadSaveDiv);
-  document.body.appendChild(animatorButtonDiv);
-  document.body.appendChild(animatorControlsButtonDiv);
-  document.body.appendChild(canvas);
+  document.body.appendChild(animatorControlsDiv);
 }
 
-function create_canvas(){
+function add_canvas(){
   canvas = document.createElement('canvas');
   canvas.id = 'canvas1';
   canvas.width = 800;
   canvas.height = 700;
   const shouldAddClickTargeting = true;
   setup_canvas(canvas, shouldAddClickTargeting);
+  document.body.appendChild(canvas);
 }
 
 function div(id){
   const div = document.createElement('div');
   div.id = id;
-  document.body.appendChild(div);
   return div;
 }
 
+function add_populate(Id, Fun){
+  const div_ = div(Id);
+  const elements = Fun();
+  elements.forEach((e) => div_.appendChild(e));
+  document.body.appendChild(div_);
+  return div_;
+}
+
 function load_save_controls(loadSaveDiv){
-  button('load', load_animations);
-  select_list(loadFileSelectId);
-  br();
-  button('save', save_animations);
-  text_with_datalist('save_file', saveFileDataListId, (e) => {});
+  const controls =
+    [button('load', load_animations),
+     select_list(loadFileSelectId),
+     br(),
+     button('save', save_animations)];
+  const datalistControls = text_with_datalist('save_file', saveFileDataListId);
+  return controls.concat(datalistControls);
 }
 
 function br(){
-  document.body.appendChild(document.createElement('br'));
+  return document.createElement('br');
 }
 
 function button(id, clickEventHandler){
@@ -163,38 +217,42 @@ function button(id, clickEventHandler){
   button.id = id;
   button.value = id;
   button.addEventListener('click', clickEventHandler);
-  document.body.appendChild(button);
+  return button;
 }
 
-function text_with_datalist(textId, datalistId, handler){
+function text_with_datalist(textId, datalistId){
   const dl = document.createElement('datalist');
   dl.id = datalistId;
-  document.body.appendChild(dl);
 
   const s = document.createElement('input');
   s.type = 'text'
   s.setAttribute('list', datalistId);
   s.id = textId;
   s.name = textId;
-  document.body.appendChild(s);
+
+  return [dl, s];
 }
 
 function set_filenames(filenames){
-
   const dl = document.querySelector('#' + saveFileDataListId);
   const select = document.querySelector('#' + loadFileSelectId);
 
-  while(dl.firstChild){
-    dl.removeChild(dl.firstChild)
-  }
-  while(select.firstChild){
-    select.removeChild(select.firstChild)
-  }
+  clear(dl);
+  clear(select);
 
   filenames.forEach((filename) => {
     dl.appendChild(option(filename));
     select.appendChild(option(filename));
   });
+}
+
+function add_channel(channel){
+  const select = document.querySelector('#' + channelSelectId);
+  select.appendChild(option(channel));
+}
+
+function clear_channels(){
+  clear(document.querySelector(`#${channelSelectId}`));
 }
 
 function option(text){
@@ -208,13 +266,12 @@ function select_list(id){
   const s = document.createElement('select');
   s.id = id;
   s.name = name;
-
-  document.body.appendChild(s);
+  return s;
 }
 
 function animator_buttons(animators){
-  animatorButtonDiv.childNodes.forEach(({child}) => child.remove());
-  animators.forEach((animator) => {animator_button(animator)});
+  clear(animatorButtonDiv);
+  animators.forEach((a) => {animator_button(a)});
 }
 
 function animator_button({name, short_name}){
@@ -235,8 +292,13 @@ function animation_controls_button(name){
   button.id = `animator_controls_button_${name}`;
   button.type = 'button';
   button.value = name;
+  button.addEventListener('click', anim_ctrls_click_fun(button, channel, name)),
+  animatorControlsButtonDiv.appendChild(button);
+}
+
+function anim_ctrls_click_fun(button, channel, name){
   const qsParams = {channel, animator: name};
-  button.addEventListener('click',
+  return
     (event) => {
       if(button.old_window?.closed){
         delete button.old_window;
@@ -250,18 +312,45 @@ function animation_controls_button(name){
       if(!button.old_div){
         add_animation_controls_div(channel, name);
       }
-    });
-  animatorControlsButtonDiv.appendChild(button);
+    };
 }
 
 function add_animation_controls_div(channel, name){
+  while(controlPanels.length > 1){
+    controlPanels.pop().remove();
+  }
+  const panel = animator_controls_panel();
+  controlPanels.unshift(panel);
+  animatorControlsDiv.appendChild(panel);
+}
+
+function animator_controls_panel(){
   const div = document.createElement('div');
   div.style.width = '300px';
   div.style.border = '1px solid blue';
   animation_controls_start(channel, name, div, false);
-  animatorControlsDiv.appendChild(div);
-  controlWindows.unshift(div);
-  while(controlWindows.length > 2){
-    controlWindows.pop().remove();
+  return div;
+}
+
+function clear(element){
+  let i = 1;
+  while(element.firstChild && i < 100){
+    element.remove(element.firstChild);
+    i++;
   }
+  console.log(`Cleared element ${element.id} ${i} times. Parent is ...`);
+  console.dir(element.parent);
+}
+
+function switch_channel(){
+  socket.send('channel leave');
+  const newChannel = document.querySelector(`#${channelSelectId}`).value;
+  socket.send(`channel join ${newChannel}`);
+  socket.send(`channel sub draw`);
+  socket.send('channel sub info');
+  socket.send('animator list');
+}
+
+function clear_animator_names(){
+  clear(animatorControlsButtonDiv);
 }

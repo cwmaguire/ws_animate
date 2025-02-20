@@ -4,7 +4,7 @@
 
 -behaviour(gen_server).
 
--export([start/1]).
+-export([start/2]).
 -export([join/1]).
 -export([leave/1]).
 -export([animator_list/1]).
@@ -24,7 +24,7 @@
 -export([handle_cast/2]).
 -export([handle_info/2]).
 
--define(FRAME_MILLIS, 50).
+-define(FRAME_MILLIS, 2000).
 
 -define(ANIMATOR_NAMES,
         [#{name => squares, short_name => s},
@@ -51,8 +51,8 @@
                 buffer = [],
                 ets_id}).
 
-start(Id) ->
-    gen_server:start(?MODULE, _Args = Id, _Opts = []).
+start(Id, Socket) ->
+    gen_server:start(?MODULE, _Args = [Id, Socket], _Opts = []).
 
 join(ChannelPid) ->
     gen_server:call(ChannelPid, join).
@@ -94,21 +94,30 @@ sub(ChannelPid, Type) ->
 subs(ChannelPid) ->
     gen_server:call(ChannelPid, subs).
 
-init(Id) ->
+init([Id, Socket]) ->
+    _Ref = monitor(process, Socket),
     TableId = ets:new(undefined, [ordered_set]),
     erlang:send_after(?FRAME_MILLIS, self(), send_buffer),
     self() ! send_files,
-    {ok, #state{id = Id, ets_id = TableId}}.
+    {ok, #state{id = Id, ets_id = TableId, sockets = [Socket]}}.
 
-handle_call(join, {From, _}, State = #state{id = Id, sockets = Sockets, subs = Subs}) ->
+handle_call(join, {From, _}, State = #state{id = Id,
+                                            sockets = Sockets,
+                                            subs = Subs,
+                                            animators = Animators}) ->
+    monitor(process, From),
     Log = ?utils:log(<<"Joined ", Id/binary>>),
+    send_animator_names(Animators, Sockets),
     {reply, [Log], State#state{sockets = [From | Sockets], subs = [{From, log} | Subs]}};
-handle_call(leave, {From, _}, State = #state{id = Id, sockets = Sockets, subs = Subs}) ->
-    Log = ?utils:log(<<"Left ", Id/binary>>),
-    Filter = fun({From_, _}) when From_ == From -> false; (_) -> true end,
-    NewSubs = lists:filter(Filter, Subs),
-    NewSockets = lists:delete(From, Sockets),
-    {reply, [Log], State#state{sockets = NewSockets, subs = NewSubs}};
+handle_call(leave, {From, _}, State = #state{id = Id, sockets = Sockets0, subs = Subs0}) ->
+    case remove_socket(From, Sockets0, Subs0) of
+        {[], _} ->
+            Log = ?utils:log(<<"Left ", Id/binary, "; no more sockets, shutting down">>),
+            {stop, normal, [Log], State#state{sockets = []}};
+        {Sockets, Subs} ->
+            Log = ?utils:log(<<"Left ", Id/binary>>),
+            {reply, [Log], State#state{sockets = Sockets, subs = Subs}}
+    end;
 handle_call({save, Filename}, {_From, _}, State = #state{animators = Animators}) ->
     States = [ws_anim_animator:get_state(A) || A <- maps:values(Animators)],
     Json = json:encode(States),
@@ -173,7 +182,8 @@ handle_call({sub, TypeBin}, {From, _}, State = #state{subs = Subs}) ->
         {_, false} ->
             NewSubs = [{From, Type} | Subs],
             NewState = State#state{subs = NewSubs},
-            new_sub(Type, NewState),
+            io:format(user, "handle call sub: NewState = ~p~n", [NewState]),
+            new_sub(Type, From, NewState),
             Log = ?utils:log(<<"Subbed to ", TypeBin/binary>>),
             case Type of
                 info ->
@@ -203,13 +213,23 @@ handle_info({buffer, DrawObject}, State = #state{ets_id = EtsId}) ->
 handle_info(send_buffer, State = #state{subs = Subs, ets_id = EtsId}) ->
     erlang:send_after(?FRAME_MILLIS, self(), send_buffer),
     maybe_send_buffer(ets:tab2list(EtsId), Subs),
-    ets:delete_all_objects(EtsId),
+    %% XXX causes flashing when animators don't draw fast enough
+    %%ets:delete_all_objects(EtsId),
     {noreply, State#state{buffer = []}};
 handle_info(send_files, State = #state{subs = Subs}) ->
     [send_files(Socket) || {Socket, info} <- Subs],
     {noreply, State};
+handle_info(_Monitor = {'DOWN', _Ref, process, Pid, Info}, State = #state{sockets = Sockets0, subs = Subs0}) ->
+    io:format("Received monitor message for ~p: ~n~p~n", [Pid, Info]),
+    case remove_socket(Pid, Sockets0, Subs0) of
+        {[], _} ->
+            io:format("Channel ~p stopping because no more sockets~n", [Pid]),
+            {stop, normal, State#state{sockets = []}};
+        {Sockets, Subs} ->
+            {noreply, State#state{sockets = Sockets, subs = Subs}}
+    end;
 handle_info(Info, State) ->
-    io:format("Received erlang message: ~n~p~n", [Info]),
+    io:format("Channel: Received erlang message: ~n~p~n", [Info]),
     {noreply, State}.
 
 send_files(Socket) ->
@@ -220,6 +240,7 @@ send_files(Socket) ->
 maybe_send_buffer([], _) ->
     ok;
 maybe_send_buffer(DrawCalls, Subs) ->
+    io:format(user, "maybe_send buffer: Subs = ~p~n", [Subs]),
     Clear = {0, draw_clear_json()},
     Finish = {0, finish_json()},
     Commands = [Clear | DrawCalls] ++ [Finish],
@@ -286,10 +307,10 @@ type(<<"control">>) -> control;
 type(<<"info">>) -> info;
 type(_) -> undefined.
 
-new_sub(control, #state{subs = Subs, animators = Animators}) ->
-    send_controls(Subs),
+new_sub(control, Socket, #state{animators = Animators}) ->
+    send_controls(Socket),
     [A ! send_controls || A <- maps:values(Animators)];
-new_sub(_, _) ->
+new_sub(_, _, _) ->
     ok.
 
 send_controls(Subs) ->
@@ -332,3 +353,18 @@ atomize_keys(K, V, Map) ->
 start_animator(Map = #{name := Name}, Animators) ->
     {ok, Pid} = ws_anim_animator:start(Map),
     Animators#{Name => Pid}.
+
+remove_socket(Socket, Sockets, Subs) ->
+    Filter =
+        fun({Socket_, _}) when Socket_ == Socket ->
+                false;
+           (_) ->
+                true
+        end,
+    {lists:delete(Socket, Sockets),
+     lists:filter(Filter, Subs)}.
+
+send_animator_names(Animators, Sockets) ->
+    Clear = ?utils:info(#{info => <<"clear_animator_names">>}),
+    [S ! {send, Clear} || S <- Sockets],
+    [A ! send_name || A <- maps:values(Animators)].

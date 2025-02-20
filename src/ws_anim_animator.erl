@@ -47,6 +47,7 @@ init({_LoadedState = #{name := Name,
                        frame := Frame,
                        state := LoadedState},
       Channel}) ->
+    monitor(process, Channel),
     AMod = binary_to_atom(AModBin),
     {ok, State0 = #state{animator_state = AState0}} =
         init({Name, Channel, AMod}),
@@ -88,16 +89,18 @@ handle_cast(_, State) ->
 
 handle_info(animate, State = #state{running = false}) ->
     {noreply, State};
-handle_info(animate, State = #state{frame = Frame}) ->
-    State1 = animate(State),
-    NextFrame =
+handle_info(animate, State = #state{frame = Frame,
+                                    frame_millis = FrameMillis}) ->
+    erlang:send_after(FrameMillis, self(), animate),
+    State2 =
        case State#state.running of
            freeze ->
-               Frame;
+               State;
            true ->
-               Frame + 1
+               State1 = animate(State),
+               State1#state{frame = Frame + 1}
        end,
-    {noreply, State1#state{frame = NextFrame}};
+    {noreply, State2};
 handle_info({set, Field, Value},
             State = #state{animator_state = AState,
                            animator_module = AMod}) ->
@@ -138,16 +141,24 @@ handle_info(freeze, State) ->
     {noreply, State#state{running = freeze}};
 handle_info(unfreeze, State) ->
     erlang:send_after(State#state.frame_millis, self(), animate),
-    {noreply, State#state{running = true}}.
+    {noreply, State#state{running = true}};
+handle_info(_Monitor = {'DOWN', _Ref, process, Channel, Info}, State = #state{channel = Channel}) ->
+    io:format("Stopping: received monitor message for Channel ~p: ~n~p~n", [Channel, Info]),
+    {stop, channel_died, State};
+handle_info(send_name, State = #state{channel = Channel,
+                                         name = Name}) ->
+    Channel ! {send, info, ?utils:info(#{animator_name => Name})},
+    {noreply, State};
+handle_info(Info, State = #state{name = Name}) ->
+    io:format("Animator ~p received unexpected info: ~p~n", [Name, Info]),
+    {noreply, State}.
 
 animate(State = #state{channel = Channel,
                        frame = Frame,
-                       frame_millis = FrameMillis,
                        z_index = ZIndex,
                        animator_state = AState,
                        animator_module = AMod}) ->
 
-    erlang:send_after(FrameMillis, self(), animate),
     Settings = #{frame => Frame,
                  z_index => ZIndex},
     AState1 = AMod:animate(Settings, AState),
