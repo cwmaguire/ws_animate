@@ -42,7 +42,7 @@ b2hex(Bin) ->
 
 send_input_control(Channel, Name, Type, Field, Value) ->
     InputControl = input(Name, Type, Field, Value),
-    Channel ! {send, control, InputControl}.
+    Channel ! {send, {Name, control}, InputControl}.
 
 input(AnimatorName, Type, Field, Value) ->
     Id = <<AnimatorName/binary, "_", Field/binary, "_", Type/binary>>,

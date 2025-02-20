@@ -15,6 +15,7 @@
 -export([animator_freeze/2]).
 -export([animator_unfreeze/2]).
 -export([sub/2]).
+-export([sub/3]).
 -export([subs/1]).
 -export([save/2]).
 -export([load/2]).
@@ -170,29 +171,9 @@ handle_call({animator_unfreeze, Name}, _From, State) ->
     Pid ! unfreeze,
     Log = ?utils:log(<<"Attempted to unfreeze ", Name/binary>>),
     {reply, [Log], State};
-handle_call({sub, TypeBin}, {From, _}, State = #state{subs = Subs}) ->
-    Type = type(TypeBin),
-    case {Type, lists:member({From, Type}, Subs)} of
-        {undefined, _} ->
-            Log = ?utils:log(<<"Invalid type: ", TypeBin/binary>>),
-            {reply, [Log], State};
-        {_, true} ->
-            Log = ?utils:log(<<"Already subbed to ", TypeBin/binary>>),
-            {reply, [Log], State};
-        {_, false} ->
-            NewSubs = [{From, Type} | Subs],
-            NewState = State#state{subs = NewSubs},
-            %io:format(user, "handle call sub: NewState = ~p~n", [NewState]),
-            new_sub(Type, NewState),
-            Log = ?utils:log(<<"Subbed to ", TypeBin/binary>>),
-            case Type of
-                info ->
-                    send_files(From);
-                _ ->
-                    ok
-            end,
-            {reply, [Log], NewState}
-    end;
+handle_call({sub, Sub}, {From, _}, State) ->
+    {Msgs, NewState} = sub(From, Sub, State),
+    {reply, Msgs, NewState};
 handle_call(subs, {From, _}, State = #state{subs = Subs}) ->
     Types = [atom_to_binary(Type) || {Socket, Type} <- Subs, Socket == From],
     IoList = [<<"Subbed to [">>, lists:join(<<", ">>, Types), <<"]">>],
@@ -204,6 +185,9 @@ handle_call(_, _From, State) ->
 handle_cast(_, State) ->
     {noreply, State}.
 
+handle_info({send, Sub = {_AnimatorName, control}, Text}, State = #state{subs = Subs}) ->
+    [Socket ! {send, Text} || {Socket, Sub_} <- Subs, Sub_ == Sub],
+    {noreply, State};
 handle_info({send, Type, Text}, State = #state{subs = Subs}) ->
     [Socket ! {send, Text} || {Socket, Type_} <- Subs, Type_ == Type],
     {noreply, State};
@@ -231,6 +215,40 @@ handle_info(_Monitor = {'DOWN', _Ref, process, Pid, Info}, State = #state{socket
 handle_info(Info, State) ->
     io:format("Channel: Received erlang message: ~n~p~n", [Info]),
     {noreply, State}.
+
+sub(Socket, SubBin, State = #state{subs = Subs}) ->
+    Sub = sub_type(SubBin),
+    Type = case Sub of
+               {_AnimatorName, control} ->
+                   control;
+               {_AnimatorName, _NotControl} ->
+                   undefined;
+               Type_ ->
+                   Type_
+           end,
+    case {Type, lists:member({Socket, Sub}, Subs)} of
+        {undefined, _} ->
+            Log = ?utils:log(<<"Invalid type: ", SubBin/binary>>),
+            {[Log], State};
+        {_, true} ->
+            Log = ?utils:log(<<"Already subbed to ", SubBin/binary>>),
+            {[Log], State};
+        {_, false} ->
+            NewSubs = [{Socket, Sub} | Subs],
+            NewState = State#state{subs = NewSubs},
+
+            new_sub(Socket, Sub, NewState),
+
+            case Type of
+                info ->
+                    send_files(Socket);
+                _ ->
+                    ok
+            end,
+
+            Log = ?utils:log(<<"Subbed to ", SubBin/binary>>),
+            {[Log], NewState}
+    end.
 
 send_files(Socket) ->
     {ok, Filenames} = file:list_dir(?SAVE_DIR),
@@ -301,20 +319,29 @@ decode_animator_set_spec(Spec) ->
             {error, Spec}
     end.
 
-type(<<"log">>) -> log;
-type(<<"draw">>) -> draw;
-type(<<"control">>) -> control;
-type(<<"info">>) -> info;
-type(_) -> undefined.
+sub_type(Sub) ->
+    case binary:split(Sub, <<" ">>) of
+        [AnimatorName, Type] ->
+            {AnimatorName, sub_type_(Type)};
+        [Type] ->
+             sub_type_(Type)
+    end.
 
-new_sub(control, #state{sockets = Sockets, animators = Animators}) ->
-    [S ! {send, control_clear_json()} || S <- Sockets],
-    [A ! send_controls || A <- maps:values(Animators)];
-new_sub(_, _) ->
+sub_type_(<<"log">>) -> log;
+sub_type_(<<"draw">>) -> draw;
+sub_type_(<<"control">>) -> control;
+sub_type_(<<"info">>) -> info;
+sub_type_(_) -> undefined.
+
+new_sub(_Socket, {AnimatorName, control}, #state{animators = Animators}) ->
+    #{AnimatorName := Animator} = Animators,
+    %Socket ! {send, control_clear_json()},
+    Animator ! send_controls;
+new_sub(_, _, _) ->
     ok.
 
-control_clear_json() ->
-    iolist_to_binary(json:encode(#{type => <<"control">>, cmd => <<"clear">>})).
+%control_clear_json() ->
+    %iolist_to_binary(json:encode(#{type => <<"control">>, cmd => <<"clear">>})).
 
 draw_clear_json() ->
     iolist_to_binary(json:encode(#{type => <<"draw">>, cmd => <<"clear">>})).

@@ -77,12 +77,12 @@ function setup_websocket(context){
 
 }
 
-function socket_open_listener({socket, channel}){
+function socket_open_listener({socket, channel, animatorName}){
   return (event) => {
     console.log("Opened socket, sending commands");
     socket.send(`channel join ${channel}`);
     socket.send("channel sub info");
-    socket.send("channel sub control");
+    socket.send(`animator sub ${animatorName} control`);
     socket.send("channel sub draw");
   };
 }

@@ -102,10 +102,10 @@ handle_info(animate, State = #state{frame = Frame,
        end,
     {noreply, State2};
 handle_info({set, Field, Value},
-            State = #state{animator_state = AState,
-                           animator_module = AMod}) ->
+            State0 = #state{animator_state = AState,
+                            animator_module = AMod}) ->
     AState1 = AMod:set(Field, Value, AState),
-    State1 = State#state{animator_state = AState1},
+    State1 = State0#state{animator_state = AState1},
     State2 =
         case Field of
             <<"frame_millis">> ->
@@ -125,12 +125,10 @@ handle_info({set, Field, Value},
             _ ->
                 State1
         end,
-    {noreply, State2};
-handle_info(send_controls,
-            State = #state{animator_state = AState,
-                           animator_module = AMod}) ->
-    AState1 = AMod:send_controls(AState),
-    send_controls(State),
+    AState2 = clear_and_send_controls(State2),
+    {noreply, State2#state{animator_state = AState2}};
+handle_info(send_controls, State) ->
+    AState1 = clear_and_send_controls(State),
     {noreply, State#state{animator_state = AState1}};
 handle_info(stop, State) ->
     {noreply, State#state{running = false}};
@@ -180,6 +178,19 @@ avg_frame_time(State = #state{window_secs = WindowSeconds,
                          times = CurrentTimes},
     TimingInfo = ?utils:info(#{name => Name, avg_frame_time => AvgTimeBin}),
     {State1, TimingInfo}.
+
+clear_and_send_controls(State = #state{name = Name,
+                                       channel = Channel,
+                                       animator_module = AMod,
+                                       animator_state = AState}) ->
+    send_clear_controls(Name, Channel),
+    AState1 = AMod:send_controls(AState),
+    send_controls(State),
+    AState1.
+
+send_clear_controls(Name, Channel) ->
+    Text = iolist_to_binary(json:encode(#{type => <<"control">>, cmd => <<"clear">>})),
+    Channel ! {send, {Name, control}, Text}.
 
 send_controls(State = #state{name = Name, channel = Channel}) ->
     ?utils:send_input_control(Channel, Name, <<"number">>, <<"frame_millis">>, State#state.frame_millis),

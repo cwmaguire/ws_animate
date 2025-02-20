@@ -103,6 +103,9 @@ do(<<"animator stop ", Animator/binary>>, State = #state{channel = Channel}) ->
 do(<<"animator start ", Animator/binary>>, State = #state{channel = Channel}) ->
     Msgs = ws_anim_channel:animator_start(Channel, Animator),
     {Msgs, State};
+do(<<"animator sub ", AnimatorAndType/binary>>, State = #state{channel = Channel}) ->
+    Msgs = ws_anim_channel:sub(Channel, AnimatorAndType),
+    {Msgs, State};
 do(<<"animator freeze ", Animator/binary>>, State = #state{channel = Channel}) ->
     Msgs = ws_anim_channel:animator_freeze(Channel, Animator),
     {Msgs, State};
