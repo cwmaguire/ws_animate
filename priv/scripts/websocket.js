@@ -237,8 +237,8 @@ function set_filenames(filenames){
   const dl = document.querySelector('#' + saveFileDataListId);
   const select = document.querySelector('#' + loadFileSelectId);
 
-  clear(dl);
-  clear(select);
+  clear_children(dl);
+  clear_children(select);
 
   filenames.forEach((filename) => {
     dl.appendChild(option(filename));
@@ -252,7 +252,7 @@ function add_channel(channel){
 }
 
 function clear_channels(){
-  clear(document.querySelector(`#${channelSelectId}`));
+  clear_children(document.querySelector(`#${channelSelectId}`));
 }
 
 function option(text){
@@ -270,7 +270,7 @@ function select_list(id){
 }
 
 function animator_buttons(animators){
-  clear(animatorButtonDiv);
+  clear_children(animatorButtonDiv);
   animators.forEach((a) => {animator_button(a)});
 }
 
@@ -292,14 +292,15 @@ function animation_controls_button(name){
   button.id = `animator_controls_button_${name}`;
   button.type = 'button';
   button.value = name;
-  button.addEventListener('click', anim_ctrls_click_fun(button, channel, name)),
+  const eventListener = anim_ctrls_click_fun(button, channel, name);
+  button.addEventListener('click', eventListener),
   animatorControlsButtonDiv.appendChild(button);
 }
 
 function anim_ctrls_click_fun(button, channel, name){
   const qsParams = {channel, animator: name};
-  return
-    (event) => {
+  const fun =
+    function(event){
       if(button.old_window?.closed){
         delete button.old_window;
         open_new_window('animation_controls', qsParams, button);
@@ -313,18 +314,19 @@ function anim_ctrls_click_fun(button, channel, name){
         add_animation_controls_div(channel, name);
       }
     };
+  return fun;
 }
 
 function add_animation_controls_div(channel, name){
   while(controlPanels.length > 1){
     controlPanels.pop().remove();
   }
-  const panel = animator_controls_panel();
+  const panel = animator_controls_panel(channel, name);
   controlPanels.unshift(panel);
   animatorControlsDiv.appendChild(panel);
 }
 
-function animator_controls_panel(){
+function animator_controls_panel(channel, name){
   const div = document.createElement('div');
   div.style.width = '300px';
   div.style.border = '1px solid blue';
@@ -332,14 +334,10 @@ function animator_controls_panel(){
   return div;
 }
 
-function clear(element){
-  let i = 1;
-  while(element.firstChild && i < 100){
-    element.remove(element.firstChild);
-    i++;
+function clear_children(element){
+  while(element.firstChild){
+    element.removeChild(element.firstChild);
   }
-  console.log(`Cleared element ${element.id} ${i} times. Parent is ...`);
-  console.dir(element.parentElement);
 }
 
 function switch_channel(){
@@ -352,5 +350,5 @@ function switch_channel(){
 }
 
 function clear_animator_names(){
-  clear(animatorControlsButtonDiv);
+  clear_children(animatorControlsButtonDiv);
 }

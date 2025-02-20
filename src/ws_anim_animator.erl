@@ -182,8 +182,8 @@ avg_frame_time(State = #state{window_secs = WindowSeconds,
     {State1, TimingInfo}.
 
 send_controls(State = #state{name = Name, channel = Channel}) ->
-    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"frame_millis">>, State#state.frame_millis),
-    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"z_index">>, State#state.z_index).
+    ?utils:send_input_control(Channel, Name, <<"number">>, <<"frame_millis">>, State#state.frame_millis),
+    ?utils:send_input_control(Channel, Name, <<"number">>, <<"z_index">>, State#state.z_index).
 
 avg_frame_time(WindowSeconds, PrevTime, PrevTimes) ->
     CurrentTime = erlang:monotonic_time(millisecond),

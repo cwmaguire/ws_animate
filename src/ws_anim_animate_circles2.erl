@@ -127,12 +127,12 @@ maybe_send_name(_) ->
 
 send_controls(State = #state{name = Name, channel = Channel}) ->
     ?utils:send_input_control(Channel, Name, <<"checkbox">>, <<"is_showing_name">>, State#state.is_showing_name),
-    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"radius">>, State#state.radius),
-    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"#_circles">>, State#state.num_circles),
-    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"#_lines">>, State#state.num_lines),
+    ?utils:send_input_control(Channel, Name, <<"number">>, <<"radius">>, State#state.radius),
+    ?utils:send_input_control(Channel, Name, <<"number">>, <<"#_circles">>, State#state.num_circles),
+    ?utils:send_input_control(Channel, Name, <<"number">>, <<"#_lines">>, State#state.num_lines),
     ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"style">>, State#state.style),
-    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"x">>, State#state.x),
-    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"y">>, State#state.y),
+    ?utils:send_input_control(Channel, Name, <<"number">>, <<"x">>, State#state.x),
+    ?utils:send_input_control(Channel, Name, <<"number">>, <<"y">>, State#state.y),
     State.
 
 -define(INT_SETTING(S), fun(State_) -> State_#state{S = I} end).

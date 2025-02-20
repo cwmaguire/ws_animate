@@ -240,7 +240,7 @@ send_files(Socket) ->
 maybe_send_buffer([], _) ->
     ok;
 maybe_send_buffer(DrawCalls, Subs) ->
-    io:format(user, "maybe_send buffer: Subs = ~p~n", [Subs]),
+    %io:format(user, "maybe_send buffer: Subs = ~p~n", [Subs]),
     Clear = {0, draw_clear_json()},
     Finish = {0, finish_json()},
     Commands = [Clear | DrawCalls] ++ [Finish],
@@ -308,28 +308,10 @@ type(<<"info">>) -> info;
 type(_) -> undefined.
 
 new_sub(control, Socket, #state{animators = Animators}) ->
-    send_controls(Socket),
+    Socket ! {send, control_clear_json()},
     [A ! send_controls || A <- maps:values(Animators)];
 new_sub(_, _, _) ->
     ok.
-
-send_controls(Subs) ->
-    Select = #{type => <<"control">>,
-               cmd => <<"select">>,
-               id => <<"create_animator">>,
-               name => <<"create_animator">>,
-               label => <<"Create Animator">>,
-               options => [#{value => <<"squares">>,
-                             text => <<"Squares">>}]},
-    %% XXX I don't think this is being used
-    SelectJson = json(Select),
-    ClearControlsJson = control_clear_json(),
-
-    [Socket ! {send, ClearControlsJson} || {Socket, control} <- Subs],
-    [Socket ! {send, SelectJson} || {Socket, control} <- Subs].
-
-json(Map) ->
-    iolist_to_binary(json:encode(Map)).
 
 control_clear_json() ->
     iolist_to_binary(json:encode(#{type => <<"control">>, cmd => <<"clear">>})).
@@ -367,4 +349,5 @@ remove_socket(Socket, Sockets, Subs) ->
 send_animator_names(Animators, Sockets) ->
     Clear = ?utils:info(#{info => <<"clear_animator_names">>}),
     [S ! {send, Clear} || S <- Sockets],
+    io:format(user, "sending 'send_name' to Animators = ~p~n", [Animators]),
     [A ! send_name || A <- maps:values(Animators)].

@@ -83,7 +83,7 @@ function draw(Command){
   const {cmd} = Command;
   switch(cmd){
     case 'clear':
-      clear(context2dWithDims);
+      clear_canvas(context2dWithDims);
       break;
     case 'square':
       square(context2dWithDims, Command);
@@ -111,7 +111,7 @@ function draw(Command){
   }
 }
 
-function clear({ctx, w, h}){
+function clear_canvas({ctx, w, h}){
   ctx.clearRect(0, 0, w, h);
   clickTargets = [];
 }

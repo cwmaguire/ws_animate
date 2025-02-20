@@ -126,6 +126,7 @@ function timing_label({animator}){
   t.type = "text";
   t.id = `${animator}_timing`;
   t.value = '';
+  t.size = 10;
   const l = document.createElement('label');
   l.textContent = 'timing';
   l.htmlFor = t.id;
@@ -148,10 +149,12 @@ function control(Command, context){
     case "select":
       controls_select(Command, context);
       break;
+    case "number":
     case "textbox":
     case "color":
     case "checkbox":
-      console.log(`${context.animator} ${cmd}`);
+      console.log(`${context.animator} ...`);
+      console.dir(Command);
       controls_input(Command, context);
       break;
     default:
@@ -210,6 +213,7 @@ function controls_input(object, context){
   i.name = object.id;
   i.value = object.value;
   i.checked = object.is_checked;
+  i.size = 10;
   const l = document.createElement('label');
   l.textContent = object.label;
   l.htmlFor = i.id;
