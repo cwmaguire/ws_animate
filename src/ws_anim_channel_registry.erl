@@ -46,14 +46,21 @@ handle_call(list, _From, State) ->
 
     Log = ws_anim_utils:log(<<"{\"Channels\": [", Names/binary, "]}">>),
     {reply, Log, State};
-handle_call(start, {From, _}, State = #state{next_id = NextId, channels = Channels}) ->
+handle_call(start,
+            {From, _},
+            State = #state{next_id = NextId,
+                           channels = Channels,
+                           subs = Subs}) ->
     Id = integer_to_binary(NextId),
     {ok, Pid} = ws_anim_channel:start(Id, From),
     _Ref = monitor(process, Pid),
+    NewChannels = [{Id, Pid} | Channels],
+    %io:format(user, "New channel (~p) started by Socket (~p), sending NewChannels (~p) to Subs (~p)~n", [Pid, From, NewChannels, Subs]),
+    send_channels(Subs, NewChannels),
     {reply,
      {Pid, Id},
      State#state{next_id = NextId + 1,
-                 channels = [{Id, Pid} | Channels]}};
+                 channels = NewChannels}};
 handle_call({lookup, Name}, _From, State = #state{channels = Channels}) ->
     MaybePid = proplists:get_value(Name, Channels),
     {reply, MaybePid, State};
@@ -90,5 +97,5 @@ send_channels(Subs, Channels) ->
     ClearMsg = ?utils:info(#{info => <<"clear_channels">>}),
     AddMsgs = [?utils:info(#{channel => Id}) || {Id, _} <- Channels],
     Msgs = [ClearMsg | AddMsgs],
-    [Socket ! {send, Msg} || {Socket, <<"channel">>} <- Subs, Msg <- Msgs].
+    [Socket ! {send, Msg} || {Socket, <<"channels">>} <- Subs, Msg <- Msgs].
 

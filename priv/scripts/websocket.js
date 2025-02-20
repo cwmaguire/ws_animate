@@ -97,7 +97,7 @@ function info(obj){
   }else if(obj?.info == 'clear_animator_names'){
     console.log('Received clear animator names');
     clear_animator_names();
-  }else{
+  }else if(!('avg_frame_time' in obj)){
     console.log('Server: unrecognized message ...');
     console.dir(obj);
   }
@@ -339,7 +339,7 @@ function clear(element){
     i++;
   }
   console.log(`Cleared element ${element.id} ${i} times. Parent is ...`);
-  console.dir(element.parent);
+  console.dir(element.parentElement);
 }
 
 function switch_channel(){

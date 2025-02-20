@@ -182,7 +182,7 @@ handle_call({sub, TypeBin}, {From, _}, State = #state{subs = Subs}) ->
         {_, false} ->
             NewSubs = [{From, Type} | Subs],
             NewState = State#state{subs = NewSubs},
-            io:format(user, "handle call sub: NewState = ~p~n", [NewState]),
+            %io:format(user, "handle call sub: NewState = ~p~n", [NewState]),
             new_sub(Type, From, NewState),
             Log = ?utils:log(<<"Subbed to ", TypeBin/binary>>),
             case Type of
