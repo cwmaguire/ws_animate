@@ -11,6 +11,8 @@ var animatorIndex = 1;
 var receive_buffer = [];
 var draw_buffer = [];
 var click_targets = [];
+var shouldUseControlsPopup = false;
+var shouldUseControlsPanel = true;
 const channelSelectId = 'channel_select';
 const saveFileDataListId = 'save_file_datalist';
 const loadFileSelectId = 'load_file_select';
@@ -134,6 +136,7 @@ function get_click_target(event){
 function create_canvas_and_controls(){
   channel_controls_div();
   load_save_controls_div();
+  page_controls_div();
   animator_button_div();
   animator_controls_button_div();
   add_canvas();
@@ -144,9 +147,19 @@ function channel_controls_div(){
   add_populate('channel_div', channel_controls);
 }
 
-function channel_controls(channelControlsDiv){
+function channel_controls(){
   return [button('join', switch_channel),
           select_list(channelSelectId)];
+}
+
+function page_controls_div(){
+  add_populate('page_controls_div', page_controls);
+}
+
+function page_controls(){
+  const controls1 = checkbox('should_use_controls_popup', toggle_controls_popup, 'controls popup?', false);
+  const controls2 = checkbox('should_use_controls_panel', toggle_controls_panel, 'controls panel?', true);
+  return controls1.concat(controls2);
 }
 
 function load_save_controls_div(){
@@ -218,6 +231,19 @@ function button(id, clickEventHandler){
   button.value = id;
   button.addEventListener('click', clickEventHandler);
   return button;
+}
+
+function checkbox(id, clickEventHandler, labelText, isChecked){
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.id = id;
+  checkbox.value = id;
+  checkbox.checked = isChecked;
+  checkbox.addEventListener('click', clickEventHandler);
+  const label = document.createElement('label');
+  label.textContent = labelText;
+  label.htmlFor = id;
+  return [label, checkbox];
 }
 
 function text_with_datalist(textId, datalistId){
@@ -301,16 +327,16 @@ function anim_ctrls_click_fun(button, channel, name){
   const qsParams = {channel, animator: name};
   const fun =
     function(event){
-      if(button.old_window?.closed){
+      if(shouldUseControlsPopup && button.old_window?.closed){
         delete button.old_window;
         open_new_window('animation_controls', qsParams, button);
       }else if('old_window' in button){
         button.old_window.focus();
-      }else{
+      }else if(shouldUseControlsPopup){
         open_new_window('animation_controls', qsParams, button);
       }
 
-      if(!button.old_div){
+      if(shouldUseControlsPanel && !button.old_div){
         add_animation_controls_div(channel, name);
       }
     };
@@ -347,6 +373,14 @@ function switch_channel(){
   socket.send(`channel sub draw`);
   socket.send('channel sub info');
   socket.send('animator list');
+}
+
+function toggle_controls_popup(e){
+  shouldUseControlsPopup = e.target.checked;
+}
+
+function toggle_controls_panel(e){
+  shouldUseControlsPanel = e.target.checked;
 }
 
 function clear_animator_names(){
