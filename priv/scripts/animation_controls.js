@@ -1,23 +1,23 @@
 "use string";
 
 function animation_controls_start(channel,
-                                  animator,
+                                  animatorName,
                                   element = document.body,
                                   hasCanvas = false){
-  const context = {channel, animator, element, hasCanvas};
+  const context = {channel, animatorName, element, hasCanvas};
   setup_divs(context);
   setup_websocket(context);
 }
 
 function setup_divs(context){
-  const {animator, element} = context;
+  const {animatorName, element} = context;
   const staticControlDiv = document.createElement('div');
-  staticControlDiv.id = `${animator}_static_control_div`;
+  staticControlDiv.id = `${animatorName}_static_control_div`;
   setup_static_controls(context, staticControlDiv);
   element.appendChild(staticControlDiv);
 
   const controlDiv = document.createElement('div');
-  controlDiv.id = `${animator}_control_div`;
+  controlDiv.id = `${animatorName}_control_div`;
   element.appendChild(controlDiv);
   context.controlDiv = controlDiv;
 
@@ -44,9 +44,9 @@ function canvas(context){
   canvasDiv.appendChild(canvas);
 }
 
-function setup_static_controls(context){
-  const {animator, element} = context;
-  const add = (e) => {element.appendChild(e)};
+function setup_static_controls(context, div){
+  const {animatorName} = context;
+  const add = (e) => {div.appendChild(e)};
   const br = () => document.createElement('br');
 
   add(controls_button(context, 'start'));
@@ -88,11 +88,12 @@ function socket_open_listener({socket, channel}){
 }
 
 function socket_message_listener(context){
-  const {animator, hasCanvas} = context;
-  return (event) => {
+  const {animatorName, hasCanvas} = context;
+  const fun =
+    function(event){
     const obj = JSON.parse(event.data);
     const {name: commandAnimator, type, cmd} = obj;
-    if(animator == commandAnimator || cmd == 'finish' || cmd == 'clear'){
+    if(animatorName == commandAnimator || cmd == 'finish' || cmd == 'clear'){
       switch(type){
         case 'draw':
           if(hasCanvas){
@@ -108,23 +109,24 @@ function socket_message_listener(context){
       }
     }
   };
+  return fun;
 }
 
 function controls_button(context, action){
-  const {animator} = context
+  const {animatorName} = context
   const button = document.createElement("input");
   button.type = "button";
-  button.id = `${animator}_${action}`;
+  button.id = `${animatorName}_${action}`;
   button.value = action;
-  const command = `animator ${action} ${animator}`;
+  const command = `animator ${action} ${animatorName}`;
   button.addEventListener("click", ({data}) => {context.socket.send(`${command}`)});
   return button;
 }
 
-function timing_label({animator}){
+function timing_label({animatorName}){
   const t = document.createElement("input");
   t.type = "text";
-  t.id = `${animator}_timing`;
+  t.id = `${animatorName}_timing`;
   t.value = '';
   t.size = 10;
   const l = document.createElement('label');
@@ -143,7 +145,7 @@ function control(Command, context){
   const {cmd} = Command;
   switch(cmd){
     case "clear":
-      console.log(`${context.animator} clear`);
+      console.log(`${context.animatorName} clear`);
       clear_controls(context);
       break;
     case "select":
@@ -153,8 +155,8 @@ function control(Command, context){
     case "textbox":
     case "color":
     case "checkbox":
-      console.log(`${context.animator} ...`);
-      console.dir(Command);
+      //console.log(`${context.animatorName} ...`);
+      //console.dir(Command);
       controls_input(Command, context);
       break;
     default:
@@ -162,9 +164,9 @@ function control(Command, context){
   }
 }
 
-function info(msg, {animator, element}){
+function info(msg, {animatorName, element}){
   if("avg_frame_time" in msg){
-    const input = element.querySelector(`#${animator}_timing`);
+    const input = element.querySelector(`#${animatorName}_timing`);
     input.value = msg.avg_frame_time;
   }
 }

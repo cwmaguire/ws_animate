@@ -183,7 +183,7 @@ handle_call({sub, TypeBin}, {From, _}, State = #state{subs = Subs}) ->
             NewSubs = [{From, Type} | Subs],
             NewState = State#state{subs = NewSubs},
             %io:format(user, "handle call sub: NewState = ~p~n", [NewState]),
-            new_sub(Type, From, NewState),
+            new_sub(Type, NewState),
             Log = ?utils:log(<<"Subbed to ", TypeBin/binary>>),
             case Type of
                 info ->
@@ -307,10 +307,10 @@ type(<<"control">>) -> control;
 type(<<"info">>) -> info;
 type(_) -> undefined.
 
-new_sub(control, Socket, #state{animators = Animators}) ->
-    Socket ! {send, control_clear_json()},
+new_sub(control, #state{sockets = Sockets, animators = Animators}) ->
+    [S ! {send, control_clear_json()} || S <- Sockets],
     [A ! send_controls || A <- maps:values(Animators)];
-new_sub(_, _, _) ->
+new_sub(_, _) ->
     ok.
 
 control_clear_json() ->

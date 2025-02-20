@@ -313,18 +313,18 @@ function animator_button({name, short_name}){
   animatorButtonDiv.appendChild(button);
 }
 
-function animation_controls_button(name){
+function animation_controls_button(animatorName){
   const button = document.createElement('input');
-  button.id = `animator_controls_button_${name}`;
   button.type = 'button';
-  button.value = name;
-  const eventListener = anim_ctrls_click_fun(button, channel, name);
+  button.id = `animator_controls_button_${animatorName}`;
+  button.value = animatorName;
+  const eventListener = anim_ctrls_click_fun(button, channel, animatorName);
   button.addEventListener('click', eventListener),
   animatorControlsButtonDiv.appendChild(button);
 }
 
-function anim_ctrls_click_fun(button, channel, name){
-  const qsParams = {channel, animator: name};
+function anim_ctrls_click_fun(button, channel, animatorName){
+  const qsParams = {channel, animator: animatorName};
   const fun =
     function(event){
       if(shouldUseControlsPopup && button.old_window?.closed){
@@ -336,27 +336,31 @@ function anim_ctrls_click_fun(button, channel, name){
         open_new_window('animation_controls', qsParams, button);
       }
 
-      if(shouldUseControlsPanel && !button.old_div){
-        add_animation_controls_div(channel, name);
+      if(shouldUseControlsPanel && !(document.querySelector(`#${animatorName}_control_panel`))){
+        const div = add_animation_controls_div(channel, animatorName, button);
       }
     };
   return fun;
 }
 
-function add_animation_controls_div(channel, name){
+function add_animation_controls_div(channel, name, button){
   while(controlPanels.length > 1){
-    controlPanels.pop().remove();
+    const panel = controlPanels.pop();
+    delete panel.animatorControlButton.animatorControlDiv;
+    panel.remove();
   }
   const panel = animator_controls_panel(channel, name);
   controlPanels.unshift(panel);
   animatorControlsDiv.appendChild(panel);
+  return panel;
 }
 
-function animator_controls_panel(channel, name){
+function animator_controls_panel(channel, animatorName){
   const div = document.createElement('div');
   div.style.width = '300px';
   div.style.border = '1px solid blue';
-  animation_controls_start(channel, name, div, false);
+  div.id = `${animatorName}_control_panel`;
+  animation_controls_start(channel, animatorName, div, false);
   return div;
 }
 
