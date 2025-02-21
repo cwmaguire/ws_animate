@@ -73,6 +73,9 @@ do(<<"channel leave">>, State = #state{channel = undefined}) ->
 do(<<"channel leave">>, State = #state{channel = Channel}) ->
     Msgs = ws_anim_channel:leave(Channel),
     {Msgs, State#state{channel = undefined}};
+do(<<"channel set ", FieldAndValue/binary>>, State = #state{channel = Channel}) ->
+    Msgs = ws_anim_channel:set_value(Channel, FieldAndValue),
+    {Msgs, State};
 do(<<"channel sub ", _/binary>>, State = #state{channel = undefined}) ->
     Log = ?utils:log(<<"Not in a channel">>),
     {[Log], State};

@@ -7,6 +7,7 @@
 -export([start/2]).
 -export([join/1]).
 -export([leave/1]).
+-export([set_value/2]).
 -export([animator_list/1]).
 -export([add_animator/2]).
 -export([animator_set_field_value/2]).
@@ -62,6 +63,9 @@ join(ChannelPid) ->
 leave(ChannelPid) ->
     gen_server:call(ChannelPid, leave).
 
+set_value(ChannelPid, FieldAndValue) ->
+    gen_server:call(ChannelPid, {set, FieldAndValue}).
+
 -spec save(pid(), binary()) -> {reply, list(), #state{}}.
 save(ChannelPid, Filename) ->
     gen_server:call(ChannelPid, {save, Filename}).
@@ -101,19 +105,19 @@ init([Id, Socket]) ->
     _Ref = monitor(process, Socket),
     TableId = ets:new(undefined, [ordered_set]),
     erlang:send_after(State#state.frame_millis, self(), send_buffer),
+    Socket ! {send, ?utils:info(#{frame_millis => State#state.frame_millis})},
     self() ! send_files,
-    send_controls(Socket, State),
     {ok, State#state{id = Id, ets_id = TableId, sockets = [Socket]}}.
 
-handle_call(join, {From, _}, State = #state{id = Id,
+handle_call(join, {Socket = _From, _}, State = #state{id = Id,
                                             sockets = Sockets,
                                             subs = Subs,
                                             animators = Animators}) ->
-    monitor(process, From),
+    monitor(process, Socket),
     Log = ?utils:log(<<"Joined ", Id/binary>>),
     send_animator_names(Animators, Sockets),
-    send_controls(From, State),
-    {reply, [Log], State#state{sockets = [From | Sockets], subs = [{From, log} | Subs]}};
+    Socket ! {send, ?utils:info(#{frame_millis => State#state.frame_millis})},
+    {reply, [Log], State#state{sockets = [Socket | Sockets], subs = [{Socket, log} | Subs]}};
 handle_call(leave, {From, _}, State = #state{id = Id, sockets = Sockets0, subs = Subs0}) ->
     case remove_socket(From, Sockets0, Subs0) of
         {[], _} ->
@@ -123,6 +127,9 @@ handle_call(leave, {From, _}, State = #state{id = Id, sockets = Sockets0, subs =
             Log = ?utils:log(<<"Left ", Id/binary>>),
             {reply, [Log], State#state{sockets = Sockets, subs = Subs}}
     end;
+handle_call({set, FieldAndValue}, {_From, _}, State) ->
+    {Log, State2} = set_field_and_value(FieldAndValue, State),
+    {reply, [Log], State2};
 handle_call({save, Filename}, {_From, _}, State = #state{animators = Animators}) ->
     States = [ws_anim_animator:get_state(A) || A <- maps:values(Animators)],
     Json = json:encode(States),
@@ -385,16 +392,21 @@ send_animator_names(Animators, Sockets) ->
     io:format(user, "sending 'send_name' to Animators = ~p~n", [Animators]),
     [A ! send_name || A <- maps:values(Animators)].
 
-send_controls(Socket, State) ->
-    Socket ! input(<<"checkbox">>, <<"frame_millis">>, State#state.frame_millis).
+set_field_and_value(FieldAndValue, State) ->
+    case binary:split(FieldAndValue, <<" ">>) of
+        [_] ->
+            Log = ?utils:log(<<"Invalid field value: ", FieldAndValue/binary>>),
+            {Log, State};
+        [Field, Value] ->
+            set_field_and_value(Field, Value, State)
+    end.
 
-input(Type, Field, Value) ->
-    Id = <<"channel_", Field/binary, "_", Type/binary>>,
-    Input = #{type => <<"control">>,
-              cmd => Type,
-              id => Id,
-              name => <<"channel">>,
-              field => Field,
-              value => Value,
-              label => <<Field/binary>>},
-    ws_anim_utils:json(Input).
+set_field_and_value(<<"frame_millis">>, Value, State) ->
+    case catch binary_to_integer(Value) of
+        I when is_integer(I) ->
+            Log = ?utils:log(<<"Set frame millis to ", Value/binary>>),
+            {Log, State#state{frame_millis = I}};
+        _ ->
+            Log = ?utils:log(<<"Invalid integer ", Value/binary, " for frame_millis">>),
+            {Log, State}
+    end.

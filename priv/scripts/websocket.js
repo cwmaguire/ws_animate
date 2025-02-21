@@ -93,6 +93,8 @@ function info(obj){
     }else{
       console.log(`Not adding channel ${obj.channel} because we're in it (${channel})`);
     }
+  }else if('frame_millis' in obj){
+    document.querySelector('#channel_frame_millis').value = obj.frame_millis;
   }else if(obj?.info == 'clear_channels'){
     console.log('Received clear channels');
     clear_channels();
@@ -148,8 +150,11 @@ function channel_controls_div(){
 }
 
 function channel_controls(){
-  return [button('join', switch_channel),
-          select_list(channelSelectId)];
+  const switchControls = [button('join', switch_channel),
+                          select_list(channelSelectId),
+                          br()];
+  const frameMillisControls = number('channel_frame_millis', set_frame_millis, 'frame_millis');
+  return switchControls.concat(frameMillisControls);
 }
 
 function page_controls_div(){
@@ -222,6 +227,18 @@ function load_save_controls(loadSaveDiv){
 
 function br(){
   return document.createElement('br');
+}
+
+function number(id, changeEventHandler, labelText){
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.size = '5';
+  input.id = id;
+  input.addEventListener('change', changeEventHandler);
+  const label = document.createElement('label');
+  label.textContent = labelText,
+  label.htmlFor = id;
+  return [label, input];
 }
 
 function button(id, clickEventHandler){
@@ -377,6 +394,11 @@ function switch_channel(){
   socket.send(`channel sub draw`);
   socket.send('channel sub info');
   socket.send('animator list');
+}
+
+function set_frame_millis(e){
+  const frameMillis = document.querySelector('#channel_frame_millis').value;
+  socket.send(`channel set frame_millis ${frameMillis}`);
 }
 
 function toggle_controls_popup(e){

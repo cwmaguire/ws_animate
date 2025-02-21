@@ -216,6 +216,7 @@ function controls_input(object, context){
   i.value = object.value;
   i.checked = object.is_checked;
   i.size = 10;
+  i.style.width = '80px';
   const l = document.createElement('label');
   l.textContent = object.label;
   l.htmlFor = i.id;
