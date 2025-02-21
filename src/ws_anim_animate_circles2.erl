@@ -46,17 +46,17 @@ animate(#{frame := Frame},
 
     {Circles2, {X2, Y2}} = circles(Frame, Name, NumCircles, Radius, X, Y, []),
 
-    Lines2 = lines(LastXY, {X2, Y2}, Name, NumLines, Lines, Frame),
+    Lines2 = lines(LastXY, {X2, Y2}, Name, NumLines, Lines, Frame, length(Circles2) + 1),
     [send(Channel, C) || C <- Circles2],
     [send(Channel, L) || L <- Lines2],
     maybe_send_name(State),
     State#state{last_x_y = {X2, Y2}, lines = Lines2}.
 
-lines({X1, Y1}, {X2, Y2}, Name, NumLines, Lines0, Frame) ->
-    LineId = id((Frame rem NumLines) + 6),
+lines({X1, Y1}, {X2, Y2}, Name, NumLines, Lines0, Frame, StartId) ->
+    LineId = id((Frame rem NumLines) + StartId),
     Line = line(Name, LineId, X1, Y1, X2, Y2),
     lists:sublist([Line | Lines0], NumLines);
-lines(_, _, _, _, _, _) ->
+lines(_, _, _, _, _, _, _) ->
     [].
 
 id(X) ->
@@ -73,17 +73,17 @@ send(Channel, BufferObject) ->
 
 circles(_, _, 0, _, X, Y, Circles) ->
     {Circles, {X, Y}};
-circles(Frame, Name, NumCircles, PrevRadius, PrevX, PrevY, Circles = []) ->
+circles(Frame, Name, NumCircles, StartRadius, StartX, StartY, Circles = []) ->
     Map0 = ?CIRCLE(Name),
-    Map = Map0#{x => PrevX,
-                y => PrevY,
-                r => PrevRadius},
+    Map = Map0#{x => StartX,
+                y => StartY,
+                r => StartRadius},
     DrawInstruction = ws_anim_utils:json(Map),
     Circle = {id(NumCircles), DrawInstruction},
-    circles(Frame, Name, NumCircles - 1, PrevRadius, PrevX, PrevY, [Circle | Circles]);
+    circles(Frame, Name, NumCircles - 1, StartRadius, StartX, StartY, [Circle | Circles]);
 circles(Frame, Name, NumCircles, PrevRadius, PrevX, PrevY, Circles) ->
-    Radius = (1 - (1 / NumCircles)) * PrevRadius,
-    NextAngle = math:fmod(((1/NumCircles) * Frame), 2 * ?PI),
+    Radius = trunc2((1 - (1 / (NumCircles + 1))) * PrevRadius),
+    NextAngle = trunc2(math:fmod(((1/NumCircles) * Frame), 2 * ?PI)),
     X = trunc(PrevX + (math:cos(NextAngle) * (PrevRadius + Radius))),
     Y = trunc(PrevY + (math:sin(NextAngle) * (PrevRadius + Radius))),
     Map0 = ?CIRCLE(Name),
@@ -104,6 +104,9 @@ line(Name, Id, X1, Y1, X2, Y2) ->
             name => Name},
     DrawInstruction = ws_anim_utils:json(Map),
     {Id, DrawInstruction}.
+
+trunc2(F) ->
+    trunc(F * 100) / 100.
 
 maybe_send_name(#state{name = Name,
                        channel = Channel,
