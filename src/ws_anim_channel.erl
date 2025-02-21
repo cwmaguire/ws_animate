@@ -25,7 +25,7 @@
 -export([handle_cast/2]).
 -export([handle_info/2]).
 
--define(FRAME_MILLIS, 2000).
+%-define(FRAME_MILLIS, 2000).
 
 -define(ANIMATOR_NAMES,
         [#{name => squares, short_name => s},
@@ -50,7 +50,8 @@
                 animators = #{},
                 subs = [],
                 buffer = [],
-                ets_id}).
+                ets_id,
+                frame_millis = 50}).
 
 start(Id, Socket) ->
     gen_server:start(?MODULE, _Args = [Id, Socket], _Opts = []).
@@ -96,11 +97,13 @@ subs(ChannelPid) ->
     gen_server:call(ChannelPid, subs).
 
 init([Id, Socket]) ->
+    State = #state{},
     _Ref = monitor(process, Socket),
     TableId = ets:new(undefined, [ordered_set]),
-    erlang:send_after(?FRAME_MILLIS, self(), send_buffer),
+    erlang:send_after(State#state.frame_millis, self(), send_buffer),
     self() ! send_files,
-    {ok, #state{id = Id, ets_id = TableId, sockets = [Socket]}}.
+    send_controls(Socket, State),
+    {ok, State#state{id = Id, ets_id = TableId, sockets = [Socket]}}.
 
 handle_call(join, {From, _}, State = #state{id = Id,
                                             sockets = Sockets,
@@ -109,6 +112,7 @@ handle_call(join, {From, _}, State = #state{id = Id,
     monitor(process, From),
     Log = ?utils:log(<<"Joined ", Id/binary>>),
     send_animator_names(Animators, Sockets),
+    send_controls(From, State),
     {reply, [Log], State#state{sockets = [From | Sockets], subs = [{From, log} | Subs]}};
 handle_call(leave, {From, _}, State = #state{id = Id, sockets = Sockets0, subs = Subs0}) ->
     case remove_socket(From, Sockets0, Subs0) of
@@ -194,8 +198,10 @@ handle_info({send, Type, Text}, State = #state{subs = Subs}) ->
 handle_info({buffer, DrawObject}, State = #state{ets_id = EtsId}) ->
     ets:insert(EtsId, DrawObject),
     {noreply, State};
-handle_info(send_buffer, State = #state{subs = Subs, ets_id = EtsId}) ->
-    erlang:send_after(?FRAME_MILLIS, self(), send_buffer),
+handle_info(send_buffer, State = #state{subs = Subs,
+                                        ets_id = EtsId,
+                                        frame_millis = FrameMillis}) ->
+    erlang:send_after(FrameMillis, self(), send_buffer),
     maybe_send_buffer(ets:tab2list(EtsId), Subs),
     %% XXX causes flashing when animators don't draw fast enough
     %%ets:delete_all_objects(EtsId),
@@ -378,3 +384,17 @@ send_animator_names(Animators, Sockets) ->
     [S ! {send, Clear} || S <- Sockets],
     io:format(user, "sending 'send_name' to Animators = ~p~n", [Animators]),
     [A ! send_name || A <- maps:values(Animators)].
+
+send_controls(Socket, State) ->
+    Socket ! input(<<"checkbox">>, <<"frame_millis">>, State#state.frame_millis).
+
+input(Type, Field, Value) ->
+    Id = <<"channel_", Field/binary, "_", Type/binary>>,
+    Input = #{type => <<"control">>,
+              cmd => Type,
+              id => Id,
+              name => <<"channel">>,
+              field => Field,
+              value => Value,
+              label => <<Field/binary>>},
+    ws_anim_utils:json(Input).
