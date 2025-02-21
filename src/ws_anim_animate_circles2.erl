@@ -129,7 +129,7 @@ send_controls(State = #state{name = Name, channel = Channel}) ->
     ?utils:send_input_control(Channel, Name, <<"checkbox">>, <<"is_showing_name">>, State#state.is_showing_name),
     ?utils:send_input_control(Channel, Name, <<"number">>, <<"radius">>, State#state.radius),
     ?utils:send_input_control(Channel, Name, <<"number">>, <<"#_circles">>, State#state.num_circles),
-    ?utils:send_input_control(Channel, Name, <<"number">>, <<"#_lines">>, State#state.num_lines),
+    ?utils:send_input_control(Channel, Name, <<"number">>, <<"#_lines">>, State#state.num_lines, #{min => 1, max => 10}),
     ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"style">>, State#state.style),
     ?utils:send_input_control(Channel, Name, <<"range">>, <<"x">>, State#state.x, #{min => 100, max => 700}),
     ?utils:send_input_control(Channel, Name, <<"range">>, <<"y">>, State#state.y, #{min => 100, max => 650}),
@@ -173,6 +173,7 @@ set(Field, _Value, State) ->
     State#state.channel ! {send, log, ws_anim_utils:log(<<"Unrecognized field: ", Field/binary>>)},
     State.
 
-set_lines(State, I) ->
+set_lines(State = #state{channel = Channel}, I) ->
     % TODO erase old lines if new I < old I
+    ws_anim_channel:buffer_delete(Channel, {{'_', self(), '_'}, '_'}),
     State#state{num_lines = I}.

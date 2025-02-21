@@ -20,6 +20,7 @@
 -export([subs/1]).
 -export([save/2]).
 -export([load/2]).
+-export([buffer_delete/2]).
 
 -export([init/1]).
 -export([handle_call/3]).
@@ -99,6 +100,9 @@ sub(ChannelPid, Type) ->
 
 subs(ChannelPid) ->
     gen_server:call(ChannelPid, subs).
+
+buffer_delete(ChannelPid, MatchPattern) ->
+    gen_server:cast(ChannelPid, {buffer_delete, MatchPattern}).
 
 init([Id, Socket]) ->
     State = #state{},
@@ -193,6 +197,9 @@ handle_call(subs, {From, _}, State = #state{subs = Subs}) ->
 handle_call(_, _From, State) ->
     {reply, [], State}.
 
+handle_cast({buffer_delete, MatchPattern}, State = #state{ets_id = EtsId}) ->
+    true = ets:match_delete(EtsId, MatchPattern),
+    {noreply, State};
 handle_cast(_, State) ->
     {noreply, State}.
 
