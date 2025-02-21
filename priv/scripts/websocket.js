@@ -363,7 +363,6 @@ function anim_ctrls_click_fun(button, channel, animatorName){
 function add_animation_controls_div(channel, name, button){
   while(controlPanels.length > 1){
     const panel = controlPanels.pop();
-    delete panel.animatorControlButton.animatorControlDiv;
     panel.remove();
   }
   const panel = animator_controls_panel(channel, name);

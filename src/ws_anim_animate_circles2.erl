@@ -131,15 +131,15 @@ send_controls(State = #state{name = Name, channel = Channel}) ->
     ?utils:send_input_control(Channel, Name, <<"number">>, <<"#_circles">>, State#state.num_circles),
     ?utils:send_input_control(Channel, Name, <<"number">>, <<"#_lines">>, State#state.num_lines),
     ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"style">>, State#state.style),
-    ?utils:send_input_control(Channel, Name, <<"number">>, <<"x">>, State#state.x),
-    ?utils:send_input_control(Channel, Name, <<"number">>, <<"y">>, State#state.y),
+    ?utils:send_input_control(Channel, Name, <<"range">>, <<"x">>, State#state.x, #{min => 100, max => 700}),
+    ?utils:send_input_control(Channel, Name, <<"range">>, <<"y">>, State#state.y, #{min => 100, max => 650}),
     State.
 
--define(INT_SETTING(S), fun(State_) -> State_#state{S = I} end).
+-define(INT_SETTING(S), fun(State_, I_) -> State_#state{S = I_} end).
 
 -define(INT_SETTINGS, #{<<"radius">> => ?INT_SETTING(radius),
                         <<"#_circles">> => ?INT_SETTING(num_circles),
-                        <<"#_lines">> => ?INT_SETTING(num_lines),
+                        <<"#_lines">> => fun set_lines/2,
                         <<"x">> => ?INT_SETTING(x),
                         <<"y">> => ?INT_SETTING(y)}).
 
@@ -152,7 +152,7 @@ set(Setting, Value, State)
   case catch binary_to_integer(Value) of
       I when is_integer(I) ->
           #{Setting := Fun} = ?INT_SETTINGS,
-          Fun(State);
+          Fun(State, I);
       _ ->
           State#state.channel ! {send, log, ws_anim_utils:log(<<"Invalid integer ", Value/binary, " for ", Setting/binary>>)},
           State
@@ -173,4 +173,6 @@ set(Field, _Value, State) ->
     State#state.channel ! {send, log, ws_anim_utils:log(<<"Unrecognized field: ", Field/binary>>)},
     State.
 
-
+set_lines(State, I) ->
+    % TODO erase old lines if new I < old I
+    State#state{num_lines = I}.

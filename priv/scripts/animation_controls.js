@@ -144,17 +144,18 @@ function timing_label({animatorName}){
 function control(Command, context){
   const {cmd} = Command;
   switch(cmd){
-    case "clear":
+    case 'clear':
       console.log(`${context.animatorName} clear`);
       clear_controls(context);
       break;
-    case "select":
+    case 'select':
       controls_select(Command, context);
       break;
-    case "number":
-    case "textbox":
-    case "color":
-    case "checkbox":
+    case 'number':
+    case 'textbox':
+    case 'color':
+    case 'checkbox':
+    case 'range':
       //console.log(`${context.animatorName} ...`);
       //console.dir(Command);
       controls_input(Command, context);
@@ -165,7 +166,7 @@ function control(Command, context){
 }
 
 function info(msg, {animatorName, element}){
-  if("avg_frame_time" in msg){
+  if('avg_frame_time' in msg){
     const input = element.querySelector(`#${animatorName}_timing`);
     input.value = msg.avg_frame_time;
   }
@@ -210,6 +211,10 @@ function controls_select({id, name, label, options}, {controlDiv}){
 function controls_input(object, context){
   const {controlDiv, element} = context;
   const i = document.createElement("input");
+
+  if('min' in object){ i.min = object.min }
+  if('max' in object){ i.max = object.max }
+
   i.setAttribute("type", object.cmd);
   i.id = object.id;
   i.name = object.id;
