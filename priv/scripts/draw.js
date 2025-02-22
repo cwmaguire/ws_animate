@@ -4,6 +4,8 @@ var context2dWithDims;
 var receiveBuffer = [];
 var drawBuffer = [];
 var clickTargets = [];
+var video;
+var stream;
 const loadedImages = new Map;
 const PATH_TO_IMAGES = 'images/';
 
@@ -42,6 +44,7 @@ function buffer_command(obj){
     receiveBuffer = [];
   }else{
     maybe_wait_image(obj);
+    maybe_wait_video(obj);
     receiveBuffer.push(obj);
   }
 }
@@ -60,12 +63,33 @@ async function maybe_wait_image(drawCommand){
   }
 }
 
+
 function load_image(img, url) {
   return new Promise((resolve, reject) => {
     img.onload = () => resolve(img);
     img.onerror = reject;
     img.src = url;
   });
+}
+
+async function maybe_wait_video(drawCommand){
+  const {cmd, device_id: deviceId} = drawCommand;
+  if(cmd == 'video_frame' && !video){
+    video = document.createElement('video');
+    console.time(`play video ${deviceId}`);
+    await play_video(deviceId);
+    console.timeEnd(`play video ${deviceId}`);
+  }
+}
+
+function play_video(deviceId){
+  const videoConstraint = {video: {deviceId: deviceId}};
+  navigator.mediaDevices.getUserMedia(videoConstraint)
+    .then((stream_) =>
+      {stream = stream_;
+       video.srcObject = stream;
+       video.play()})
+    .then(() => console.log(`playing video from ${deviceId}`));
 }
 
 function animation_frame(_timestamp){
@@ -105,6 +129,9 @@ function draw(Command){
       break;
     case 'image':
       image(context2dWithDims, Command);
+      break;
+    case 'video_frame':
+      video_frame(context2dWithDims, Command);
       break;
     default:
       console.log(`Ignoring command ${cmd}`);
@@ -184,6 +211,12 @@ async function image({ctx}, command){
   const imageSourceY = 0;
   ctx.drawImage(img, imageSourceX, imageSourceY, img.width, img.height, x, y, imageWidth, imageHeight);
   add_click_target({...command, type: 'square', w: imageWidth, h: imageHeight});
+}
+
+async function video_frame({ctx}, command){
+  const {x, y, w, h} = command;
+  ctx.drawImage(video, x, y, w, h);
+  add_click_target({...command, type: 'square'});
 }
 
 function add_click_target(shape){

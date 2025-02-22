@@ -36,7 +36,8 @@
          #{name => gradient, short_name => g},
          #{name => fps, short_name => f},
          #{name => background, short_name => bg},
-         #{name => image, short_name => img}]).
+         #{name => image, short_name => img},
+         #{name => video, short_name => v}]).
 
 -define(ANIMATORS,
         #{<<"squares">> => ws_anim_animate_squares,
@@ -45,7 +46,8 @@
           <<"gradient">> => ws_anim_animate_gradient,
           <<"fps">> => ws_anim_animate_frame_info,
           <<"background">> => ws_anim_animate_background,
-          <<"image">> => ws_anim_animate_image}).
+          <<"image">> => ws_anim_animate_image,
+          <<"video">> => ws_anim_animate_video}).
 
 -record(state, {id = "no ID set",
                 sockets = [],
