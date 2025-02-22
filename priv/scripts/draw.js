@@ -6,6 +6,7 @@ var drawBuffer = [];
 var clickTargets = [];
 var video;
 var stream;
+var transformSerialized;
 const loadedImages = new Map;
 const PATH_TO_IMAGES = 'images/';
 
@@ -133,6 +134,9 @@ function draw(Command){
     case 'video_frame':
       video_frame(context2dWithDims, Command);
       break;
+    case 'transform':
+      transform(context2dWithDims, Command);
+      break;
     default:
       console.log(`Ignoring command ${cmd}`);
   }
@@ -186,8 +190,8 @@ function line({ctx}, command){
   ctx.stroke();
 }
 
-function text({ctx}, {text, x, y, font_size, font_color}){
-  ctx.font = `${font_size}, 'Courier New', monospace;`;
+function text({ctx}, {text, x, y, font_size, font, font_color}){
+  ctx.font = `${font_size} ${font}, monospace`;
   ctx.fillStyle = font_color;
   ctx.fillText(text, x, y);
   // TODO add click target
@@ -217,6 +221,19 @@ async function video_frame({ctx}, command){
   const {x, y, w, h} = command;
   ctx.drawImage(video, x, y, w, h);
   add_click_target({...command, type: 'square'});
+}
+
+function transform({ctx}, command){
+  const {transform: abcdef} = command;
+  const transformSerializedLocal = abcdef.toString();
+  if(transformSerializedLocal != transformSerialized){
+    console.log(`Setting transform to ${abcdef}`);
+    transformSerialized = transformSerializedLocal;
+    const [a, b, c, d, e, f] = abcdef;
+    ctx.setTransform(a, b, c, d, e, f);
+    ctx.translate(400, 0);
+    ctx.scale(0.5, 0.5);
+  }
 }
 
 function add_click_target(shape){

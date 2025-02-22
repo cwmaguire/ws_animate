@@ -214,6 +214,7 @@ function controls_input(object, context){
 
   if('min' in object){ i.min = object.min }
   if('max' in object){ i.max = object.max }
+  if('step' in object){ i.step = object.step }
 
   i.setAttribute("type", object.cmd);
   i.id = object.id;

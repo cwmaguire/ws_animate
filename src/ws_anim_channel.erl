@@ -37,7 +37,9 @@
          #{name => fps, short_name => f},
          #{name => background, short_name => bg},
          #{name => image, short_name => img},
-         #{name => video, short_name => v}]).
+         #{name => video, short_name => v},
+         #{name => transform, short_name => t},
+         #{name => text, short_name => txt}]).
 
 -define(ANIMATORS,
         #{<<"squares">> => ws_anim_animate_squares,
@@ -47,7 +49,9 @@
           <<"fps">> => ws_anim_animate_frame_info,
           <<"background">> => ws_anim_animate_background,
           <<"image">> => ws_anim_animate_image,
-          <<"video">> => ws_anim_animate_video}).
+          <<"video">> => ws_anim_animate_video,
+          <<"transform">> => ws_anim_animate_transform,
+          <<"text">> => ws_anim_animate_text}).
 
 -record(state, {id = "no ID set",
                 sockets = [],
@@ -398,7 +402,6 @@ remove_socket(Socket, Sockets, Subs) ->
 send_animator_names(Animators, Sockets) ->
     Clear = ?utils:info(#{info => <<"clear_animator_names">>}),
     [S ! {send, Clear} || S <- Sockets],
-    io:format(user, "sending 'send_name' to Animators = ~p~n", [Animators]),
     [A ! send_name || A <- maps:values(Animators)].
 
 set_field_and_value(FieldAndValue, State) ->
