@@ -158,6 +158,10 @@ function square_filled({ctx}, command){
   const {x, y, w, h, style, name} = command;
   ctx.fillStyle = style;
   ctx.fillRect(x, y, w, h);
+  if('stroke_style' in command){
+    ctx.strokeStyle = command.stroke_style;
+    ctx.strokeRect(x, y, w, h);
+  }
   add_click_target({...command, type: 'square'});
 }
 

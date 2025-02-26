@@ -60,6 +60,7 @@ square(State, Frame, Name) ->
             w => W,
             h => H,
             style => State#state.style,
+            stroke_style => <<"black">>,
             name => Name},
     {ws_anim_utils:json(Map), X, Y, Z}.
 
