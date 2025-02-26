@@ -20,6 +20,7 @@
 -export([subs/1]).
 -export([save/2]).
 -export([load/2]).
+-export([buffer_delete/1]).
 -export([buffer_delete/2]).
 
 -export([init/1]).
@@ -39,7 +40,8 @@
          #{name => image, short_name => img},
          #{name => video, short_name => v},
          #{name => transform, short_name => t},
-         #{name => text, short_name => txt}]).
+         #{name => text, short_name => txt},
+         #{name => zindex, short_name => z}]).
 
 -define(ANIMATORS,
         #{<<"squares">> => ws_anim_animate_squares,
@@ -51,7 +53,8 @@
           <<"image">> => ws_anim_animate_image,
           <<"video">> => ws_anim_animate_video,
           <<"transform">> => ws_anim_animate_transform,
-          <<"text">> => ws_anim_animate_text}).
+          <<"text">> => ws_anim_animate_text,
+          <<"zindex">> => ws_anim_animate_zindex}).
 
 -record(state, {id = "no ID set",
                 sockets = [],
@@ -106,6 +109,9 @@ sub(ChannelPid, Type) ->
 
 subs(ChannelPid) ->
     gen_server:call(ChannelPid, subs).
+
+buffer_delete(ChannelPid) ->
+    buffer_delete(ChannelPid, {{'_', self(), '_'}, '_'}).
 
 buffer_delete(ChannelPid, MatchPattern) ->
     gen_server:cast(ChannelPid, {buffer_delete, MatchPattern}).

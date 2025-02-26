@@ -179,5 +179,5 @@ set(Field, _Value, State) ->
 
 set_lines(State = #state{channel = Channel}, I) ->
     % TODO erase old lines if new I < old I
-    ws_anim_channel:buffer_delete(Channel, {{'_', self(), '_'}, '_'}),
+    ws_anim_channel:buffer_delete(Channel),
     State#state{num_lines = I}.
