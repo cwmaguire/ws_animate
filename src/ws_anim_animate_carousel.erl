@@ -1,4 +1,4 @@
--module(ws_anim_animate_zindex).
+-module(ws_anim_animate_carousel).
 
 -include("ws_anim.hrl").
 
