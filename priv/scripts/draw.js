@@ -67,30 +67,46 @@ async function maybe_wait_image(drawCommand){
 
 function load_image(img, url) {
   return new Promise((resolve, reject) => {
+    // TODO since the caller throws away the img result, we could
+    // probably just say:
+    // img.onload = resolve
+    // i.e. when the 'load' event fires, call resolve(...) to signal
+    // the the promise has been resolved, and, since we're returning
+    // a value, it's also been fulfilled.
+    // (I believe a resolved Promise can trigger another Promise, in
+    // which case the first promise is "resolved" but not "fulfilled")
     img.onload = () => resolve(img);
     img.onerror = reject;
     img.src = url;
   });
 }
 
-async function maybe_wait_video(drawCommand){
+function maybe_wait_video(drawCommand){
   const {cmd, device_id: deviceId} = drawCommand;
-  if(cmd == 'video_frame' && !video){
-    video = document.createElement('video');
-    console.time(`play video ${deviceId}`);
-    await play_video(deviceId);
-    console.timeEnd(`play video ${deviceId}`);
+  if(cmd == 'video_frame'){
+    wait_video(deviceId);
   }
 }
 
-function play_video(deviceId){
+// XXX assumes only one device ID is ever used
+// TODO set device ID on video DOM object
+async function wait_video(deviceId){
+  if(!video){
+    video = document.createElement('video');
+    document.body.appendChild(video);
+    await play_video(deviceId);
+    console.log('function wait_video(deviceId): video should be playing after await play_video(deviceId)');
+  }
+}
+
+async function play_video(deviceId){
   const videoConstraint = {video: {deviceId: deviceId}};
-  navigator.mediaDevices.getUserMedia(videoConstraint)
+  return navigator.mediaDevices.getUserMedia(videoConstraint)
     .then((stream_) =>
       {stream = stream_;
        video.srcObject = stream;
        video.play()})
-    .then(() => console.log(`playing video from ${deviceId}`));
+    .then(() => console.log(`play_video(deviceId) (in Promise) playing video from ${deviceId}`));
 }
 
 function animation_frame(_timestamp){
@@ -131,6 +147,8 @@ function draw(Command){
     case 'image':
       image(context2dWithDims, Command);
       break;
+    case 'bitmap':
+      bitmap(context2dWithDims, Command);
     case 'video_frame':
       video_frame(context2dWithDims, Command);
       break;
@@ -221,6 +239,16 @@ async function image({ctx}, command){
   add_click_target({...command, type: 'square', w: imageWidth, h: imageHeight});
 }
 
+async function bitmap({ctx}, command){
+  const {img, x, y, w, data, name} = command;
+
+  console.log(data);
+  //const array = new Uint8ClampedArray(data);
+  //const imageData = new ImageData(array, w);
+  //ctx.putImageData(img, x, y);
+  //add_click_target({...command, type: 'square', w: imageWidth, h: imageHeight});
+}
+
 async function video_frame({ctx}, command){
   const {x, y, w, h} = command;
   ctx.drawImage(video, x, y, w, h);
@@ -238,6 +266,10 @@ function transform({ctx}, command){
     ctx.translate(400, 0);
     ctx.scale(0.5, 0.5);
   }
+}
+
+function bitmap({ctx}, command){
+  console.dir(command);
 }
 
 function add_click_target(shape){

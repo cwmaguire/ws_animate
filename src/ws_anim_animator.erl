@@ -23,6 +23,7 @@
                 window_secs = 1 :: integer(),
                 prev_time :: integer,
                 times = [] :: list(),
+                data :: any(),
                 running = true :: true | false | freeze}).
 
 
@@ -147,6 +148,8 @@ handle_info(send_name, State = #state{channel = Channel,
                                          name = Name}) ->
     Channel ! {send, info, ?utils:info(#{animator_name => Name})},
     {noreply, State};
+handle_info({image, Image}, State) ->
+    {noreply, State#state{data = Image}};
 handle_info(Info, State = #state{name = Name}) ->
     io:format("Animator ~p received unexpected info: ~p~n", [Name, Info]),
     {noreply, State}.
@@ -155,15 +158,17 @@ animate(State = #state{channel = Channel,
                        frame = Frame,
                        z_index = ZIndex,
                        animator_state = AState,
-                       animator_module = AMod}) ->
+                       animator_module = AMod,
+                       data = Data}) ->
 
     Settings = #{frame => Frame,
-                 z_index => ZIndex},
+                 z_index => ZIndex,
+                 data => Data},
     AState1 = AMod:animate(Settings, AState),
 
     {State1, TimingInfo} = avg_frame_time(State),
     Channel ! {send, info, TimingInfo},
-    State1#state{animator_state = AState1}.
+    State1#state{animator_state = AState1, data = undefined}.
 
 avg_frame_time(State = #state{window_secs = WindowSeconds,
                               prev_time = PrevTime,

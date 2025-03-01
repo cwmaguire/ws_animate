@@ -101,10 +101,24 @@ function info(obj){
   }else if(obj?.info == 'clear_animator_names'){
     console.log('Received clear animator names');
     clear_animator_names();
+  }else if(obj?.info == 'send_image'){
+    send_image(obj.deviceId, obj.animatorName);
   }else if(!('avg_frame_time' in obj)){
     console.log('Server: unrecognized message ...');
     console.dir(obj);
   }
+}
+
+async function send_image(deviceId, animatorName){
+    await wait_video(deviceId);
+    video.requestVideoFrameCallback(() => send_image_(animatorName));
+}
+
+async function send_image_(animatorName){
+  const binary = await capture_image_binary(video);
+  console.log('Got binary back from capture_image_binary(video)');
+  console.dir(binary);
+  socket.send(`animator image ${animatorName} ${binary}`);
 }
 
 function open_new_window(name, qsParams, button) {

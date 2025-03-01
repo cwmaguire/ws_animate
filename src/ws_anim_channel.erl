@@ -15,6 +15,7 @@
 -export([animator_start/2]).
 -export([animator_freeze/2]).
 -export([animator_unfreeze/2]).
+-export([animator_image/2]).
 -export([sub/2]).
 -export([sub/3]).
 -export([subs/1]).
@@ -41,7 +42,8 @@
          #{name => video, short_name => v},
          #{name => transform, short_name => t},
          #{name => text, short_name => txt},
-         #{name => zindex, short_name => z}]).
+         #{name => carousel, short_name => cr},
+         #{name => convolution, short_name => co}]).
 
 -define(ANIMATORS,
         #{<<"squares">> => ws_anim_animate_squares,
@@ -54,7 +56,8 @@
           <<"video">> => ws_anim_animate_video,
           <<"transform">> => ws_anim_animate_transform,
           <<"text">> => ws_anim_animate_text,
-          <<"zindex">> => ws_anim_animate_zindex}).
+          <<"carousel">> => ws_anim_animate_carousel,
+          <<"convolution">> => ws_anim_animate_convolution}).
 
 -record(state, {id = "no ID set",
                 sockets = [],
@@ -103,6 +106,9 @@ animator_freeze(ChannelPid, Name) ->
 
 animator_unfreeze(ChannelPid, Name) ->
     gen_server:call(ChannelPid, {animator_unfreeze, Name}).
+
+animator_image(ChannelPid, AnimatorAndImage) ->
+    gen_server:cast(ChannelPid, {animator_image, AnimatorAndImage}).
 
 sub(ChannelPid, Type) ->
     gen_server:call(ChannelPid, {sub, Type}).
@@ -211,6 +217,12 @@ handle_call(_, _From, State) ->
 
 handle_cast({buffer_delete, MatchPattern}, State = #state{ets_id = EtsId}) ->
     true = ets:match_delete(EtsId, MatchPattern),
+    {noreply, State};
+handle_cast({animator_image, AnimatorAndImage}, State) ->
+    [Name, Image] = binary:split(AnimatorAndImage, <<" ">>),
+    #{Name := Pid} = State#state.animators,
+    Pid ! {image, Image},
+
     {noreply, State};
 handle_cast(_, State) ->
     {noreply, State}.

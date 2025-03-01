@@ -29,13 +29,13 @@ websocket_handle({text, Bin}, State) ->
     end;
 websocket_handle(Frame, State) ->
     io:format("Received other frame: ~n~p: ~p~n", [self(), Frame]),
-    {ok, State}.
+    {[], State}.
 
 websocket_info({send, Text}, State) ->
     {[{text, Text}], State};
 websocket_info(Info, State) ->
     io:format("Socket: Received erlang message: ~n~p~n", [Info]),
-    {ok, State}.
+    {[], State}.
 
 do(<<"registry sub channels">>, State) ->
     Msgs = ws_anim_channel_registry:sub(<<"channels">>),
@@ -115,6 +115,9 @@ do(<<"animator freeze ", Animator/binary>>, State = #state{channel = Channel}) -
 do(<<"animator unfreeze ", Animator/binary>>, State = #state{channel = Channel}) ->
     Msgs = ws_anim_channel:animator_unfreeze(Channel, Animator),
     {Msgs, State};
+do(<<"animator image ", AnimatorAndBinary/binary>>, State = #state{channel = Channel}) ->
+    ws_anim_channel:animator_image(Channel, AnimatorAndBinary),
+    {[], State};
 do(Other, State) ->
     Log = ?utils:log(<<"Command '", Other/binary, "' not recognized">>),
     {[Log], State}.
