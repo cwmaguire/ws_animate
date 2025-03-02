@@ -102,6 +102,7 @@ function info(obj){
     console.log('Received clear animator names');
     clear_animator_names();
   }else if(obj?.info == 'send_image'){
+    console.log(`Image requested: ${obj.deviceId}, ${obj.animatorName}`);
     send_image(obj.deviceId, obj.animatorName);
   }else if(!('avg_frame_time' in obj)){
     console.log('Server: unrecognized message ...');
@@ -115,9 +116,11 @@ async function send_image(deviceId, animatorName){
 }
 
 async function send_image_(animatorName){
+  console.log('websocket.js send_image_ video frame callback');
   const binary = await capture_image_binary(video);
-  console.log('Got binary back from capture_image_binary(video)');
-  console.dir(binary);
+  //console.log('Got binary back from capture_image_binary(video)');
+  //console.dir(binary.slice(100,200));
+  //console.log(`Sending back to ${animatorName}`);
   socket.send(`animator image ${animatorName} ${binary}`);
 }
 
@@ -133,20 +136,6 @@ function open_new_window(name, qsParams, button) {
   // XXX Not sure what this was for
   //newWindow.addEventListener('load', (event) => { });
   button.old_window = newWindow;
-}
-
-function add_click_target(shape){
-  click_targets.unshift(shape);
-}
-
-function get_click_target(event){
-  const temp_click_targets = click_targets.slice();
-  const {offsetX: x, offsetY: y} = event;
-  const is_click_target_ = (ct) => is_click_target(ct, {x, y});
-  const maybe_click_target = temp_click_targets.filter(is_click_target_)[0];
-  if(maybe_click_target){
-    document.querySelector(`#animator_controls_button_${maybe_click_target.name}`).click();
-  }
 }
 
 function create_canvas_and_controls(){

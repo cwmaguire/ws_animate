@@ -154,7 +154,7 @@ handle_info(Info, State = #state{name = Name}) ->
     io:format("Animator ~p received unexpected info: ~p~n", [Name, Info]),
     {noreply, State}.
 
-animate(State = #state{channel = Channel,
+animate(State = #state{channel = _Channel,
                        frame = Frame,
                        z_index = ZIndex,
                        animator_state = AState,
@@ -166,8 +166,8 @@ animate(State = #state{channel = Channel,
                  data => Data},
     AState1 = AMod:animate(Settings, AState),
 
-    {State1, TimingInfo} = avg_frame_time(State),
-    Channel ! {send, info, TimingInfo},
+    {State1, _TimingInfo} = avg_frame_time(State),
+    %Channel ! {send, info, TimingInfo},
     State1#state{animator_state = AState1, data = undefined}.
 
 avg_frame_time(State = #state{window_secs = WindowSeconds,

@@ -63,9 +63,8 @@
                 sockets = [],
                 animators = #{},
                 subs = [],
-                buffer = [],
                 ets_id,
-                frame_millis = 50}).
+                frame_millis = 500}).
 
 start(Id, Socket) ->
     gen_server:start(?MODULE, _Args = [Id, Socket], _Opts = []).
@@ -240,10 +239,8 @@ handle_info(send_buffer, State = #state{subs = Subs,
                                         ets_id = EtsId,
                                         frame_millis = FrameMillis}) ->
     erlang:send_after(FrameMillis, self(), send_buffer),
-    maybe_send_buffer(ets:tab2list(EtsId), Subs),
-    %% XXX causes flashing when animators don't draw fast enough
-    %%ets:delete_all_objects(EtsId),
-    {noreply, State#state{buffer = []}};
+    maybe_send_buffer(EtsId, Subs),
+    {noreply, State};
 handle_info(send_files, State = #state{subs = Subs}) ->
     [send_files(Socket) || {Socket, info} <- Subs],
     {noreply, State};
@@ -299,15 +296,55 @@ send_files(Socket) ->
     InfoJson = ?utils:info(#{filenames => [list_to_binary(F) || F <- Filenames]}),
     Socket ! {send, InfoJson}.
 
-maybe_send_buffer([], _) ->
+maybe_send_buffer(EtsId, Subs) ->
+
+    Entries = ets:tab2list(EtsId),
+    DrawCalls = lists:map(fun draw_call/1, Entries),
+    [print_draw_call(DC) || DC <- DrawCalls],
+    maybe_send_commands(DrawCalls, Subs),
+
+    lists:map(fun(E) -> update_cached_call(EtsId, E) end,
+              Entries).
+
+draw_call({_Key, #{json := Json}}) ->
+    Json;
+draw_call({_Key, Json}) ->
+    Json.
+
+print_draw_call(#{json := Json}) ->
+    print_draw_call_(Json);
+print_draw_call(Json) ->
+    print_draw_call_(Json).
+
+print_draw_call_(Json) ->
+    Map = json:decode(Json),
+    WithoutData = maps:without([<<"data">>], Map),
+    io:format(user, "WithoutData = ~p~n", [WithoutData]).
+
+update_cached_call(EtsId, {Key, #{cached := true, id := Id}}) ->
+    NewDrawCall =
+       #{type => <<"draw">>,
+         cmd => <<"cached">>,
+         id => Id},
+    ets:insert(EtsId, {Key, ?utils:json(NewDrawCall)}),
+    Entries = ets:tab2list(EtsId),
+    case Entries of
+        [_ | _] ->
+            io:format(user, "Entries = ~p~n", [Entries]);
+        _ ->
+            ok
+    end;
+update_cached_call(_, _) ->
+    ok.
+
+maybe_send_commands([], _) ->
     ok;
-maybe_send_buffer(DrawCalls, Subs) ->
-    %io:format(user, "maybe_send buffer: Subs = ~p~n", [Subs]),
-    Clear = {0, draw_clear_json()},
-    Finish = {0, finish_json()},
-    Commands = [Clear | DrawCalls] ++ [Finish],
+maybe_send_commands(Commands, Subs) ->
+    Clear = draw_clear_json(),
+    Finish = finish_json(),
+    Commands2 = [Clear | Commands] ++ [Finish],
     [Socket ! {send, Json} || {Socket, draw} <- Subs,
-                             {_Id, Json} <- Commands].
+                              Json <- Commands2].
 
 %% TODO check for animator with same user-assigned name
 add_animator_(Spec, State) ->

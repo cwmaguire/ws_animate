@@ -33,22 +33,33 @@ animate(#{data := Image},
                        channel = Channel,
                        device_id = DeviceId})
   when Image /= undefined ->
-    %io:format("~p~n", [Image]),
-    Json = convolute_image(State, Name, Image),
+    io:format("ws_anim_animate_convolution: image received~n"),
+    WebCacheId = list_to_binary(pid_to_list(self())),
+    Json = convolute_image(State, Name, WebCacheId, Image),
     Id = {_ZIndex = 100, self(), 1},
     ws_anim_channel:buffer_delete(Channel),
-    Channel ! {buffer, {Id, Json}},
+    Channel ! {buffer, {Id, #{json => Json, id => WebCacheId, cached => true}}},
     timer:sleep(5000),
-    InfoMsg = #{info => <<"send_image">>,
-                deviceId => DeviceId,
-                animatorName => Name},
-    Channel ! {send, info, ?utils:info(InfoMsg)},
+    request_image(DeviceId, Name, Channel),
     maybe_send_name(State, _X = 0, _Y = 0),
     State;
 animate(_Settings, State) ->
+    %io:format("No image received~n"),
     State.
 
-convolute_image(_State, Name, Image) ->
+request_image(DeviceId, Name, Channel) ->
+    InfoMsg = #{info => <<"send_image">>,
+                deviceId => DeviceId,
+                animatorName => Name},
+    io:format("requesting image: ~p~n", [InfoMsg]),
+    Channel ! {send, info, ?utils:info(InfoMsg)}.
+
+convolute_image(_State, Name, WebCacheId, Image) ->
+    Bytes =
+        lists:map(fun erlang:binary_to_integer/1,
+                  binary:split(Image, <<",">>, [global])),
+
+    _Bytes2 = [trunc(X / 2) || X <- Bytes],
 
     %% TODO have the web page draw this data directly
     %% onto the canvas, as opposed to creating an image
@@ -59,9 +70,12 @@ convolute_image(_State, Name, Image) ->
     %%  can just draw it.)
     Map = #{type => <<"draw">>,
             cmd => <<"bitmap">>,
-            data => Image,
+            shouldCache => true,
+            id => WebCacheId,
+            data => Bytes,
             x => 0,
             y => 0,
+            w => 640,
             name => Name},
     ws_anim_utils:json(Map).
 

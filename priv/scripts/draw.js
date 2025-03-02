@@ -7,6 +7,7 @@ var clickTargets = [];
 var video;
 var stream;
 var transformSerialized;
+var drawCache = new Map();
 const loadedImages = new Map;
 const PATH_TO_IMAGES = 'images/';
 
@@ -95,7 +96,6 @@ async function wait_video(deviceId){
     video = document.createElement('video');
     document.body.appendChild(video);
     await play_video(deviceId);
-    console.log('function wait_video(deviceId): video should be playing after await play_video(deviceId)');
   }
 }
 
@@ -120,43 +120,56 @@ function render_buffer(_timestamp){
   buffer.forEach(draw);
 }
 
-function draw(Command){
-  const {cmd} = Command;
+function draw(command){
+  maybe_cache(command);
+  const {cmd} = command;
   switch(cmd){
     case 'clear':
       clear_canvas(context2dWithDims);
       break;
     case 'square':
-      square(context2dWithDims, Command);
+      square(context2dWithDims, command);
       break;
     case 'square_filled':
-      square_filled(context2dWithDims, Command);
+      square_filled(context2dWithDims, command);
       break;
     case 'square_gradient':
-      square_gradient(context2dWithDims, Command);
+      square_gradient(context2dWithDims, command);
       break;
     case 'circle':
-      circle(context2dWithDims, Command);
+      circle(context2dWithDims, command);
       break;
     case 'line':
-      line(context2dWithDims, Command);
+      line(context2dWithDims, command);
       break;
     case 'text':
-      text(context2dWithDims, Command);
+      text(context2dWithDims, command);
       break;
     case 'image':
-      image(context2dWithDims, Command);
+      image(context2dWithDims, command);
       break;
     case 'bitmap':
-      bitmap(context2dWithDims, Command);
+      bitmap(context2dWithDims, command);
+      break;
     case 'video_frame':
-      video_frame(context2dWithDims, Command);
+      video_frame(context2dWithDims, command);
       break;
     case 'transform':
-      transform(context2dWithDims, Command);
+      transform(context2dWithDims, command);
+      break;
+    case 'cached':
+      console.dir(command);
+      draw(drawCache.get(command.id));
       break;
     default:
       console.log(`Ignoring command ${cmd}`);
+  }
+}
+
+function maybe_cache(command){
+  if(command?.shouldCache){
+    console.log('caching');
+    drawCache.set(command.id, {...command, shouldCache: false})
   }
 }
 
@@ -239,13 +252,12 @@ async function image({ctx}, command){
   add_click_target({...command, type: 'square', w: imageWidth, h: imageHeight});
 }
 
-async function bitmap({ctx}, command){
+function bitmap({ctx}, command){
   const {img, x, y, w, data, name} = command;
 
-  console.log(data);
-  //const array = new Uint8ClampedArray(data);
-  //const imageData = new ImageData(array, w);
-  //ctx.putImageData(img, x, y);
+  const array = new Uint8ClampedArray(data);
+  const imageData = new ImageData(array, w);
+  ctx.putImageData(imageData, x, y);
   //add_click_target({...command, type: 'square', w: imageWidth, h: imageHeight});
 }
 
@@ -266,10 +278,6 @@ function transform({ctx}, command){
     ctx.translate(400, 0);
     ctx.scale(0.5, 0.5);
   }
-}
-
-function bitmap({ctx}, command){
-  console.dir(command);
 }
 
 function add_click_target(shape){
