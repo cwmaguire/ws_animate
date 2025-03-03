@@ -10,6 +10,7 @@ var clickTargets = [];
 var transformSerialized;
 
 const drawCache = new Map();
+const imageCache = new Map();
 const videoReady = new Map();
 const images = new Map();
 
@@ -193,10 +194,17 @@ async function image({ctx}, command){
 }
 
 function bitmap({ctx}, command){
-  const {img, x, y, w, data, name} = command;
+  let imageData;
+  const {shouldCache, x, y} = command;
+  if(shouldCache){
+    const {w, data} = command;
+    const array = new Uint8ClampedArray(data);
+    imageData = new ImageData(array, w);
+    imageCache.set(command.id, imageData);
+  }else{
+    imageData = imageCache.get(command.id);
+  }
 
-  const array = new Uint8ClampedArray(data);
-  const imageData = new ImageData(array, w);
   ctx.putImageData(imageData, x, y);
   //add_click_target({...command, type: 'square', w: imageWidth, h: imageHeight});
 }

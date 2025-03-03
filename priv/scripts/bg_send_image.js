@@ -8,15 +8,18 @@ const RGBA_BYTES_PER_PIXEL = 4;
 self.addEventListener('message', dispatch);
 
 function dispatch({data}){
-  if('channel' in data){
+  if(data?.command == 'channel'){
     channel = data.channel;
     socket = create_socket();
+  }else if(data?.command == 'send_image'){
+    background_send_image(data.animatorName, data.videoFrame);
   }else{
-    background_send_image(data);
+    console.log('bg_send_image unexpected command ...');
+    console.dir(data);
   }
 }
 
-async function background_send_image({animatorName, videoFrame}){
+async function background_send_image(animatorName, videoFrame){
   const format = videoFrame.format;
   const width = videoFrame.codedWidth;
   const height = videoFrame.codedHeight;

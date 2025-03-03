@@ -19,7 +19,7 @@ const loadFileSelectId = 'load_file_select';
 const controlPanels = [];
 const loadedImages = new Map;
 const PATH_TO_IMAGES = 'images/';
-const device = 'cde819aad3a5f7da8759721271d1d3deaf3dbdce8666ecfb5f4180f93f5e0d00';
+const deviceId = 'cde819aad3a5f7da8759721271d1d3deaf3dbdce8666ecfb5f4180f93f5e0d00';
 
 const socketWorker = new Worker('scripts/bg_socket.js');
 socketWorker.addEventListener('message', dispatch);
@@ -47,7 +47,11 @@ function save_animations(){
 function dispatch({data}){
   if('channel' in data){
     imageWorker = new Worker('scripts/bg_send_image.js');
-    imageWorker.postMessage(data);
+    const command =
+      {target: 'send_image',
+       command: 'channel',
+       channel: data.channel};
+    imageWorker.postMessage(command);
     channel = data.channel
   }else if('animators' in data){
     animator_buttons(data.animators);
@@ -408,7 +412,12 @@ async function send_image(deviceId, animatorName){
 
 function send_image_(animatorName){
   const videoFrame = new VideoFrame(video);
-  imageWorker.postMessage({animatorName, videoFrame});
+  const command =
+    {target: 'send_image',
+     command: 'send_image',
+     videoFrame,
+     animatorName};
+  imageWorker.postMessage(command);
 }
 
 // XXX assumes only one device ID is ever used
