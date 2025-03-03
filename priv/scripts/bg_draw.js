@@ -1,73 +1,49 @@
 'use strict';
+
 var canvas;
 var context2dWithDims;
+
 var receiveBuffer = [];
 var drawBuffer = [];
 var clickTargets = [];
-var stream;
+
 var transformSerialized;
-var drawCache = new Map();
-const loadedImages = new Map;
-const PATH_TO_IMAGES = 'images/';
 
-function setup_canvas(canvas_, shouldAddClickTargeting = false){
-  canvas = canvas_;
-  const ctx = canvas.getContext('2d');
+const drawCache = new Map();
+const videoReady = new Map();
+const images = new Map();
 
-  // Matrix transform from DOMMatrix
-  // a c e     x
-  // b d f  .  y    a = x scaling
-  // - - 1     1    d = y scaling
+self.addEventListener('message', dispatch);
 
-  // Multiple each row element by each column
-  // element and add them together to get the final
-  // row element: e.g. ax + cy + e1 = x2
-  //                   bx + dy + f1 = y2
-  //
-  // See https://tinylittlemaggie.github.io/transformation-matrix-playground/
-
-  const {a,d} = ctx.getTransform();
-  const xScale = a;
-  const yScale = d;
-  context2dWithDims = {ctx: ctx,
-                       w: canvas.width / xScale,
-                       h: canvas.height / yScale};
-  if(shouldAddClickTargeting){
-    canvas.addEventListener('click', get_click_target);
+function dispatch({data}){
+  if(data?.command == 'animate'){
+    render_buffer();
+  }else if(data?.command == 'buffer'){
+    buffer_command(data.obj);
+  }else if(data?.command == 'transfer canvas'){
+    setup_canvas(data);
+  }else if(data?.command == 'video is ready'){
+    videoReady.set(data.deviceId, true);
+  }else if('image' in data){
+    images.set(data.src, data.image);
+  }else if(data?.command == 'get click target'){
+    get_click_target(data.event);
+  }else if(data?.command == 'echo'){
+    console.log(`bg_draw echo: ${data?.text}`);
   }
 }
-
-requestAnimationFrame(animation_frame);
 
 function buffer_command(obj){
   if(obj.cmd == 'finish'){
     drawBuffer = receiveBuffer;
     receiveBuffer = [];
-  }else{
-    maybe_wait_image(obj);
-    maybe_wait_video(obj);
+  }else if(maybe_wait_image(obj) &&
+           maybe_wait_video(obj)){
     receiveBuffer.push(obj);
+  }else{
+    console.log(`bg_draw: not ready for ...`);
+    console.log(obj);
   }
-}
-
-async function maybe_wait_image(drawCommand){
-  const {cmd, src} = drawCommand;
-  if(cmd == 'image' && !loadedImages.has(src)){
-    const img = document.createElement('img');
-    console.time(`load image ${src}`);
-    await load_image(img, PATH_TO_IMAGES + src);
-    console.timeEnd(`load image ${src}`);
-    loadedImages.set(src, img);
-    drawCommand.img = img;
-  }else if(cmd == 'image'){
-    drawCommand.img = loadedImages.get(src);
-  }
-}
-
-
-function animation_frame(_timestamp){
-  render_buffer();
-  requestAnimationFrame(animation_frame);
 }
 
 function render_buffer(_timestamp){
@@ -210,7 +186,9 @@ async function image({ctx}, command){
   const imageWidth = img.width * widthScale;
   const imageSourceX = 0;
   const imageSourceY = 0;
-  ctx.drawImage(img, imageSourceX, imageSourceY, img.width, img.height, x, y, imageWidth, imageHeight);
+  // XXX not allowed to draw to canvas since it's owned
+  // by a worker thread
+  // ctx.drawImage(img, imageSourceX, imageSourceY, img.width, img.height, x, y, imageWidth, imageHeight);
   add_click_target({...command, type: 'square', w: imageWidth, h: imageHeight});
 }
 
@@ -246,14 +224,16 @@ function add_click_target(shape){
   clickTargets.unshift(shape);
 }
 
-function get_click_target(event){
+function get_click_target({x, y}){
   const tempClickTargets = clickTargets.slice();
-  const {offsetX: x, offsetY: y} = event;
   const isClickTargetFun = (ct) => is_click_target(ct, {x, y});
   const maybeClickTarget = tempClickTargets.filter(isClickTargetFun)[0];
   if(maybeClickTarget){
-    self.postMessage({command: 'click target',
-                      clickTarget: maybeClickTarget});
+    const command =
+      {target: 'main',
+       command: 'click target',
+       clickTarget: maybeClickTarget};
+    self.postMessage(command);
   }
 }
 
@@ -277,4 +257,63 @@ function square_hittest({x, y}, square){
 
 function circle_hittest({x: x1, y: y1}, {x: x2, y: y2, r}){
   return r >= Math.hypot(x1 - x2, y1 - y2);
+}
+
+function maybe_wait_video(drawCommand){
+  const {cmd, device_id: deviceId} = drawCommand;
+  if(cmd == 'video_frame' && !videoReady.has(deviceId)){
+    trigger_video(deviceId);
+    return false;
+  }else{
+    return true;
+  }
+}
+
+function trigger_video(deviceId){
+  self.postMessage({target: 'main',
+                    command: 'wait video',
+                    deviceId});
+}
+
+function maybe_wait_image(drawCommand){
+  const {cmd, src} = drawCommand;
+  if(cmd == 'image' && !imageReady.has(src)){
+    trigger_image
+    return false;
+  }else{
+    return true;
+    // TODO move to draw commands
+    drawCommand.img = loadedImages.get(src);
+  }
+}
+
+function trigger_image(drawCommand){
+  self.postMessage({target: 'main',
+                    command: 'wait image',
+                    url: drawCommand.src});
+}
+
+function setup_canvas({canvas: canvas_,
+                       shouldAddClickTargeting = false}){
+  canvas = canvas_;
+  const ctx = canvas.getContext('2d');
+
+  // Matrix transform from DOMMatrix
+  // a c e     x
+  // b d f  .  y    a = x scaling
+  // - - 1     1    d = y scaling
+
+  // Multiple each row element by each column
+  // element and add them together to get the final
+  // row element: e.g. ax + cy + e1 = x2
+  //                   bx + dy + f1 = y2
+  //
+  // See https://tinylittlemaggie.github.io/transformation-matrix-playground/
+
+  const {a,d} = ctx.getTransform();
+  const xScale = a;
+  const yScale = d;
+  context2dWithDims = {ctx: ctx,
+                       w: canvas.width / xScale,
+                       h: canvas.height / yScale};
 }

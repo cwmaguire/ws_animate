@@ -64,7 +64,7 @@
                 animators = #{},
                 subs = [],
                 ets_id,
-                frame_millis = 500}).
+                frame_millis = 50}).
 
 start(Id, Socket) ->
     gen_server:start(?MODULE, _Args = [Id, Socket], _Opts = []).
@@ -300,7 +300,7 @@ maybe_send_buffer(EtsId, Subs) ->
 
     Entries = ets:tab2list(EtsId),
     DrawCalls = lists:map(fun draw_call/1, Entries),
-    [print_draw_call(DC) || DC <- DrawCalls],
+    %[print_draw_call(DC) || DC <- DrawCalls],
     maybe_send_commands(DrawCalls, Subs),
 
     lists:map(fun(E) -> update_cached_call(EtsId, E) end,
@@ -311,15 +311,15 @@ draw_call({_Key, #{json := Json}}) ->
 draw_call({_Key, Json}) ->
     Json.
 
-print_draw_call(#{json := Json}) ->
-    print_draw_call_(Json);
-print_draw_call(Json) ->
-    print_draw_call_(Json).
-
-print_draw_call_(Json) ->
-    Map = json:decode(Json),
-    WithoutData = maps:without([<<"data">>], Map),
-    io:format(user, "WithoutData = ~p~n", [WithoutData]).
+%print_draw_call(#{json := Json}) ->
+%    print_draw_call_(Json);
+%print_draw_call(Json) ->
+%    print_draw_call_(Json).
+%
+%print_draw_call_(Json) ->
+%    Map = json:decode(Json),
+%    WithoutData = maps:without([<<"data">>], Map),
+%    io:format(user, "WithoutData = ~p~n", [WithoutData]).
 
 update_cached_call(EtsId, {Key, #{cached := true, id := Id}}) ->
     NewDrawCall =

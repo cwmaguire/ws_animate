@@ -1,5 +1,5 @@
 'use strict';
-var context2dWithDims;
+
 var channel;
 var canvas;
 var channelControlsDiv;
@@ -8,120 +8,83 @@ var animatorButtonDiv;
 var animatorControlsButtonDiv;
 var animatorControlsDiv;
 var animatorIndex = 1;
-var receive_buffer = [];
-var draw_buffer = [];
-var click_targets = [];
 var shouldUseControlsPopup = false;
 var shouldUseControlsPanel = true;
+var video;
+var imageWorker;
+
 const channelSelectId = 'channel_select';
 const saveFileDataListId = 'save_file_datalist';
 const loadFileSelectId = 'load_file_select';
 const controlPanels = [];
+const loadedImages = new Map;
+const PATH_TO_IMAGES = 'images/';
+const device = 'cde819aad3a5f7da8759721271d1d3deaf3dbdce8666ecfb5f4180f93f5e0d00';
+
+const socketWorker = new Worker('scripts/bg_socket.js');
+socketWorker.addEventListener('message', dispatch);
 
 create_canvas_and_controls();
-const socket = create_socket();
-
-function create_socket(){
-  const socket = new WebSocket('ws://localhost:8081/ws');
-  socket.addEventListener('open', websocket_open);
-  socket.addEventListener('message', websocket_message);
-  socket.addEventListener('error', websocket_error);
-  socket.addEventListener('close', websocket_close);
-  return socket;
-}
-
-function websocket_open(event){
-  socket.send('channel start');
-  socket.send('channel sub draw');
-  socket.send('channel sub info');
-  socket.send('animator list');
-  socket.send('registry sub channels');
-  requestAnimationFrame(animation_frame);
-}
-
-function websocket_message(event){
-  let obj = JSON.parse(event.data);
-  switch(obj.type){
-    case 'draw':
-      buffer_command(obj);
-      break;
-    case 'info':
-      info(obj);
-      break;
-    case 'log':
-      console.log('Server: ' + obj.log);
-      break;
-  }
-}
-
-function websocket_error(event){
-  console.log('Websocket error: ', event);
-}
-
-function websocket_close(event){
-  console.log('Websocket close. Code: ', event.code, '. Reason: \'', event.reason, '\'. Clean? ', event.wasClean);
-}
 
 function load_animations(){
   const filename = document.querySelector('#load_file_select').value;
-  socket.send(`channel load ${filename}`);
+  const command =
+    {target: 'server',
+      command: `load animations ${filename}`};
+  socketWorker.postMessage(command);
 }
 
 function save_animations(){
   const saveFileText = document.querySelector('#save_file');
   const filename = saveFileText.value;
-  socket.send(`channel save ${filename}`);
+  const command =
+    {target: 'server',
+      command: `load animations ${filename}`};
+  socketWorker.postMessage(command);
   saveFileText.value = '';
 }
 
-function info(obj){
-  if('channel_name' in obj){
-    channel = obj.channel_name;
-  }else if('animators' in obj){
-    animator_buttons(obj.animators);
-  }else if('animator_name' in obj){
-    animation_controls_button(obj.animator_name);
-  }else if('filenames' in obj){
+function dispatch({data}){
+  if('channel' in data){
+    imageWorker = new Worker('scripts/bg_send_image.js');
+    imageWorker.postMessage(data);
+    channel = data.channel
+  }else if('animators' in data){
+    animator_buttons(data.animators);
+  }else if('animator_name' in data){
+    animation_controls_button(data.animator_name);
+  }else if('filenames' in data){
     console.log('Received filenames ...');
-    console.dir(obj);
-    set_filenames(obj.filenames);
-  }else if('channel' in obj){
-    console.log('Received channel ...');
-    console.dir(obj);
-    if(obj.channel != channel){
-      add_channel(obj.channel);
+    console.dir(data);
+    set_filenames(data.filenames);
+  }else if('channel' in data){
+    if(data.channel != channel){
+      add_channel(data.channel);
     }else{
-      console.log(`Not adding channel ${obj.channel} because we're in it (${channel})`);
+      console.log(`Not adding channel ${data.channel} because we're in it (${channel})`);
     }
-  }else if('frame_millis' in obj){
-    document.querySelector('#channel_frame_millis').value = obj.frame_millis;
-  }else if(obj?.info == 'clear_channels'){
+  }else if('frame_millis' in data){
+    document.querySelector('#channel_frame_millis').value = data.frame_millis;
+  }else if(data?.info == 'clear_channels'){
     console.log('Received clear channels');
     clear_channels();
-  }else if(obj?.info == 'clear_animator_names'){
+  }else if(data?.info == 'clear_animator_names'){
     console.log('Received clear animator names');
     clear_animator_names();
-  }else if(obj?.info == 'send_image'){
-    console.log(`Image requested: ${obj.deviceId}, ${obj.animatorName}`);
-    send_image(obj.deviceId, obj.animatorName);
-  }else if(!('avg_frame_time' in obj)){
+  }else if(data?.info == 'send_image'){
+    console.log(`Image requested: ${data.deviceId}, ${data.animatorName}`);
+    send_image(data.deviceId, data.animatorName);
+  }else if(!('avg_frame_time' in data)){
     console.log('Server: unrecognized message ...');
-    console.dir(obj);
+    console.dir(data);
+  }else if(data?.command == 'wait video'){
+    wait_video(data.deviceId);
+  }else if(data?.command == 'wait image'){
+    wait_image(data.src);
+  }else{
+    console.log('main unexpected command ...');
+    console.dir(data);
   }
-}
-
-async function send_image(deviceId, animatorName){
-    await wait_video(deviceId);
-    video.requestVideoFrameCallback(() => send_image_(animatorName));
-}
-
-async function send_image_(animatorName){
-  console.log('websocket.js send_image_ video frame callback');
-  const binary = await capture_image_binary(video);
-  //console.log('Got binary back from capture_image_binary(video)');
-  //console.dir(binary.slice(100,200));
-  //console.log(`Sending back to ${animatorName}`);
-  socket.send(`animator image ${animatorName} ${binary}`);
 }
 
 function open_new_window(name, qsParams, button) {
@@ -199,9 +162,26 @@ function add_canvas(){
   canvas.id = 'canvas1';
   canvas.width = 800;
   canvas.height = 700;
+  canvas.addEventListener('click', get_click_target);
   const shouldAddClickTargeting = true;
-  setup_canvas(canvas, shouldAddClickTargeting);
+  const offscreenCanvas = canvas.transferControlToOffscreen();
+  //setup_canvas(canvas, shouldAddClickTargeting);
+  const command =
+    {target: 'draw',
+     command: 'transfer canvas',
+     canvas: offscreenCanvas,
+     shouldAddClickTargeting,
+     transfer: [offscreenCanvas]};
+  socketWorker.postMessage(command, [offscreenCanvas]);
   document.body.appendChild(canvas);
+}
+
+function get_click_target(event){
+  const {offsetX: x, offsetY: y} = event;
+  const command = {target: 'draw',
+                   command: 'get click target',
+                   event: {x, y}};
+  socketWorker.postMessage(command);
 }
 
 function div(id){
@@ -327,7 +307,10 @@ function animator_button({name, short_name}){
   button.value = name;
   button.addEventListener('click',
     (event) => {
-      socket.send(`animator add ${name} ${short_name}_${animatorIndex.toString()}`);
+      const command =
+        {target: 'server',
+         command: `animator add ${name} ${short_name}_${animatorIndex.toString()}`};
+      socketWorker.postMessage(command);
       animatorIndex += 1;
     });
   animatorButtonDiv.appendChild(button);
@@ -390,17 +373,20 @@ function clear_children(element){
 }
 
 function switch_channel(){
-  socket.send('channel leave');
   const newChannel = document.querySelector(`#${channelSelectId}`).value;
-  socket.send(`channel join ${newChannel}`);
-  socket.send(`channel sub draw`);
-  socket.send('channel sub info');
-  socket.send('animator list');
+  const command =
+    {target: 'server',
+     command: 'switch channel',
+     channel: newChannel};
+  socketWorkder.postMessage(command);
 }
 
 function set_frame_millis(e){
   const frameMillis = document.querySelector('#channel_frame_millis').value;
-  socket.send(`channel set frame_millis ${frameMillis}`);
+  const command =
+    {target: 'server',
+     command: `channel set frame_millis ${frameMillis}`};
+  socketWorker.postMessage(command);
 }
 
 function toggle_controls_popup(e){
@@ -413,4 +399,77 @@ function toggle_controls_panel(e){
 
 function clear_animator_names(){
   clear_children(animatorControlsButtonDiv);
+}
+
+async function send_image(deviceId, animatorName){
+    await wait_video(deviceId);
+    video.requestVideoFrameCallback(() => send_image_(animatorName));
+}
+
+function send_image_(animatorName){
+  const videoFrame = new VideoFrame(video);
+  imageWorker.postMessage({animatorName, videoFrame});
+}
+
+// XXX assumes only one device ID is ever used
+// TODO set device ID on video DOM object
+async function wait_video(deviceId){
+  if(!video){
+    video = document.createElement('video');
+    document.body.appendChild(video);
+    await start_webcam(deviceId);
+  }else{
+     notify_video(deviceId);
+  }
+}
+
+async function start_webcam(deviceId){
+  const videoConstraint = {video: {deviceId: deviceId}};
+  return navigator.mediaDevices.getUserMedia(videoConstraint)
+    .then(play_video)
+    .then(() => notify_video(deviceId));
+}
+
+function play_video(stream){
+  video.srcObject = stream;
+  return video.play();
+}
+
+function notify_video(){
+  const command =
+    {target: 'draw',
+     command: 'video is ready',
+     deviceId};
+  socketWorker.postMessage(command);
+}
+
+async function maybe_wait_image(drawCommand){
+  const {cmd, src} = drawCommand;
+  if(cmd == 'image' && !loadedImages.has(src)){
+    const img = document.createElement('img');
+    console.time(`load image ${src}`);
+    await load_image(img, PATH_TO_IMAGES + src);
+    console.timeEnd(`load image ${src}`);
+    loadedImages.set(src, img);
+    drawCommand.img = img;
+  }else if(cmd == 'image'){
+    drawCommand.img = loadedImages.get(src);
+  }
+}
+
+// TODO send images back to draw worker
+function load_image(img, url) {
+  return new Promise((resolve, reject) => {
+    // TODO since the caller throws away the img result, we could
+    // probably just say:
+    // img.onload = resolve
+    // i.e. when the 'load' event fires, call resolve(...) to signal
+    // the the promise has been resolved, and, since we're returning
+    // a value, it's also been fulfilled.
+    // (I believe a resolved Promise can trigger another Promise, in
+    // which case the first promise is "resolved" but not "fulfilled")
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = url;
+  });
 }
