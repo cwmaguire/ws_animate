@@ -425,6 +425,8 @@ function send_image_(animatorName){
 async function wait_video(deviceId){
   if(!video){
     video = document.createElement('video');
+    //video.style.width = '40px';
+    //video.style.height = '30px';
     document.body.appendChild(video);
     await start_webcam(deviceId);
   }else{

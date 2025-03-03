@@ -19,17 +19,32 @@ function dispatch({data}){
   }
 }
 
+const copyOptions = {colorSpace: 'srgb', format: 'RGBA'};
+var imageArray;
+var shrunkArray;
+
 async function background_send_image(animatorName, videoFrame){
-  const format = videoFrame.format;
   const width = videoFrame.codedWidth;
   const height = videoFrame.codedHeight;
   const rgbSize = width * height * RGBA_BYTES_PER_PIXEL;
 
-  const imageArray = new Uint8ClampedArray(rgbSize);
-  const copyOptions = {colorSpace: 'srgb', format: 'RGBA'};
+  if(!imageArray){
+    imageArray = new Uint8ClampedArray(rgbSize);
+    shrunkArray = new Uint8ClampedArray(rgbSize / 16);
+  }
+
   const layout = await videoFrame.copyTo(imageArray, copyOptions);
   videoFrame.close();
-  const binary = imageArray.toString();
+
+  for(let y = 0, y2 = 0; y < 480; y += 4, y2++){
+    for(let x = 0, x2 = 0; x < (640 * 4); x += 16, x2 += 4){
+      for(let component = 0; component < 4; component++){
+        shrunkArray[(y2 * 160 * 4) + x2 + component] = imageArray[(y * 640 * 4) + x + component]
+      }
+    }
+  }
+  //const binary = imageArray.toString();
+  const binary = shrunkArray.toString();
   socket.send(`animator image ${animatorName} ${binary}`);
 }
 

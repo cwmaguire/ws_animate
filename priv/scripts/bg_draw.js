@@ -91,7 +91,6 @@ function draw(command){
       transform(context2dWithDims, command);
       break;
     case 'cached':
-      console.dir(command);
       const cachedCommand = drawCache.get(command.id);
       if(cachedCommand){
         draw(drawCache.get(command.id));

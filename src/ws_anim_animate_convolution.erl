@@ -75,7 +75,7 @@ convolute_image(_State, Name, WebCacheId, Image) ->
             data => Bytes,
             x => 0,
             y => 0,
-            w => 640,
+            w => 160,
             name => Name},
     ws_anim_utils:json(Map).
 
