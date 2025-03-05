@@ -8,6 +8,18 @@
 -export([send_controls/1]).
 -export([rec_info/0]).
 
+-export([apply_kernel/3]).
+-export([apply_kernel_/3]).
+-export([convolute/1]).
+-export([kernel_binaries/2]).
+-export([shift_row_down_1/2]).
+-export([shift_row_up_1/2]).
+-export([shift_columns_right_1/2]).
+-export([shift_columns_left_1/2]).
+
+-export([test_image/0]).
+-export([id_kernel/0]).
+
 -record(state, {name,
                 channel = undefined,
                 device_id = <<"cde819aad3a5f7da8759721271d1d3deaf3dbdce8666ecfb5f4180f93f5e0d00">>,
@@ -59,7 +71,26 @@ convolute_image(_State, Name, WebCacheId, Image) ->
         lists:map(fun erlang:binary_to_integer/1,
                   binary:split(Image, <<",">>, [global])),
 
-    _Bytes2 = [trunc(X / 2) || X <- Bytes],
+    Bin = list_to_binary(Bytes),
+
+    %_Bytes2 = [trunc(X / 2) || X <- Bytes],
+
+    Kernel = [0, 0, 0,
+              0, 0, 1,
+              0, 0, 0],
+    % Kernel = [0, -1, 0,
+    %           -1, 4, -1,
+    %           0, -1, 0],
+    % Kernel = [1,  1,  1,
+    %           1, -8,  1,
+    %           1,  1,  1],
+    %Kernel = [0, 0, 0,
+              %0, 1, 0,
+              %0, 0, 0],
+    Convoluted = apply_kernel(Kernel, Bin, 4),
+    io:format(user, "Convoluted = ~p~n", [Convoluted]),
+
+    %List = binary_to_list(Convoluted),
 
     %% TODO have the web page draw this data directly
     %% onto the canvas, as opposed to creating an image
@@ -72,7 +103,7 @@ convolute_image(_State, Name, WebCacheId, Image) ->
             cmd => <<"bitmap">>,
             shouldCache => true,
             id => WebCacheId,
-            data => Bytes,
+            data => Convoluted,
             x => 0,
             y => 0,
             w => 160,
@@ -136,3 +167,76 @@ set(<<"is_showing_name">>, Value, State) ->
 set(Field, _Value, State) ->
     State#state.channel ! {send, log, ws_anim_utils:log(<<"Unrecognized field: ", Field/binary>>)},
     State.
+
+apply_kernel(Kernel, Bin, Width) ->
+    Bins = kernel_binaries(Bin, Width),
+    apply_kernel_(Kernel, Bins, _Pixels = []).
+
+apply_kernel_(_, [<<>> | _], Image) ->
+    Image;
+apply_kernel_(Kernel, Bins, Image) ->
+    {Pixels, Bins2} = lists:unzip([{Pixel, Rest} || <<Pixel:4/binary, Rest/binary>> <- Bins]),
+    KernelPixels = lists:zip(Kernel, Pixels),
+    Convoluted = lists:map(fun convolute/1, KernelPixels),
+    P = sum_columns(Convoluted, []),
+    apply_kernel_(Kernel, Bins2, Image ++ P).
+
+sum_columns([[_A] | _], Sums) ->
+    Alpha = 255,
+    Sums ++ [Alpha];
+sum_columns(Lists, Sums) ->
+    {Heads, Tails} = lists:unzip([{hd(L), tl(L)} || L <- Lists]),
+    Sum = clamp(lists:foldl(fun erlang:'+'/2, 0, Heads)),
+    sum_columns(Tails, Sums ++ [Sum]).
+
+clamp(I) ->
+    max(0, min(255, I)).
+
+convolute({K, <<R/integer, G/integer, B/integer, A/integer>>}) ->
+    [K * R,
+     K * G,
+     K * B,
+     K * A].
+
+kernel_binaries(Bin, Width) ->
+    %Width = ImageWidth * ?PIXEL_WIDTH,
+    [shift_columns_right_1(shift_row_down_1(Bin, Width), Width),
+     shift_row_down_1(Bin, Width),
+     shift_columns_left_1(shift_row_down_1(Bin, Width), Width),
+     shift_columns_right_1(Bin, Width),
+     Bin,
+     shift_columns_left_1(Bin, Width),
+     shift_columns_right_1(shift_row_up_1(Bin, Width), Width),
+     shift_row_up_1(Bin, Width),
+     shift_columns_left_1(shift_row_up_1(Bin, Width), Width)].
+
+shift_row_down_1(Bin, Width) ->
+    Size = size(Bin),
+    <<Head:(Size - Width)/binary, _/binary>> = Bin,
+    <<0:(Width * 8 * 4), Head/binary>>.
+
+-define(BITS, 8).
+-define(PIXEL_BYTES, 4).
+
+shift_row_up_1(Bin, Width) ->
+    <<_:(Width * ?PIXEL_BYTES)/binary, Tail/binary>> = Bin,
+    <<Tail/binary, 0:(Width * ?BITS * ?PIXEL_BYTES)>>.
+
+shift_columns_right_1(Bin, Width) ->
+    PixelWidth = Width * 4,
+    << <<0:32, Head/binary>> || <<Head:(PixelWidth - 4)/binary, _:4/binary>> <= Bin >>.
+
+shift_columns_left_1(Bin, Width) ->
+    PixelWidth = Width * 4,
+    << <<Tail/binary, 0:32>> || <<_:4/binary, Tail:(PixelWidth - 4)/binary>> <= Bin>>.
+
+test_image() ->
+    <<0,0,0,255,1,1,1,255,2,2,2,255,3,3,3,255,
+      4,4,4,255,5,5,5,255,6,6,6,255,7,7,7,255,
+      8,8,8,255,9,9,9,255,10,10,10,255,11,11,11,255,
+      12,12,12,255,13,13,13,255,14,14,14,255,15,15,15,255>>.
+
+id_kernel() ->
+    [0, 0, 0,
+     0, 1, 0,
+     0, 0, 0].
