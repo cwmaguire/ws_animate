@@ -22,13 +22,16 @@
 
 -define(BITS, 8).
 -define(PIXEL_BYTES, 4).
--define(PIXEL_BITS, ?PIXEL_BYTES * ?BITS).
+-define(PIXEL_BITS, (?PIXEL_BYTES * ?BITS)).
 
 -record(state, {name,
                 channel = undefined,
                 device_id = <<"cde819aad3a5f7da8759721271d1d3deaf3dbdce8666ecfb5f4180f93f5e0d00">>,
                 x,
                 y,
+                kernel = [0, 0, 0,
+                          0, 1, 0,
+                          0, 0, 0],
                 is_showing_name = false}).
 
 rec_info() -> {record_info(size, state),
@@ -49,7 +52,7 @@ animate(#{data := Image},
                        channel = Channel,
                        device_id = DeviceId})
   when Image /= undefined ->
-    io:format("ws_anim_animate_convolution: image received~n"),
+    %io:format("ws_anim_animate_convolution: image received~n"),
     WebCacheId = list_to_binary(pid_to_list(self())),
     Json = convolute_image(State, Name, WebCacheId, Image),
     Id = {_ZIndex = 100, self(), 1},
@@ -70,7 +73,7 @@ request_image(DeviceId, Name, Channel) ->
     io:format("requesting image: ~p~n", [InfoMsg]),
     Channel ! {send, info, ?utils:info(InfoMsg)}.
 
-convolute_image(_State, Name, WebCacheId, Image) ->
+convolute_image(#state{kernel = Kernel}, Name, WebCacheId, Image) ->
     Bytes =
         lists:map(fun erlang:binary_to_integer/1,
                   binary:split(Image, <<",">>, [global])),
@@ -79,9 +82,6 @@ convolute_image(_State, Name, WebCacheId, Image) ->
 
     %_Bytes2 = [trunc(X / 2) || X <- Bytes],
 
-    Kernel = [0, 0, 0,
-              0, 0, 0,
-              0, 1, 0],
     % Kernel = [0, 0, 0,
     %           0, 0, 1,
     %           0, 0, 0],
@@ -95,7 +95,7 @@ convolute_image(_State, Name, WebCacheId, Image) ->
               %0, 1, 0,
               %0, 0, 0],
     Convoluted = apply_kernel(Kernel, Bin, 160),
-    io:format(user, "Convoluted = ~p~n", [Convoluted]),
+    %io:format(user, "Convoluted = ~p~n", [Convoluted]),
 
     %List = binary_to_list(Convoluted),
 
@@ -139,26 +139,101 @@ maybe_send_name(#state{name = Name,
 maybe_send_name(_, _, _) ->
     ok.
 
-send_controls(State = #state{name = Name, channel = Channel}) ->
+send_controls(State = #state{name = Name, channel = Channel, kernel = Kernel}) ->
+    [K1, K2, K3,
+     K4, K5, K6,
+     K7, K8, K9] = Kernel,
     ?utils:send_input_control(Channel, Name, <<"checkbox">>, <<"is_showing_name">>, State#state.is_showing_name),
     ?utils:send_input_control(Channel, Name, <<"number">>, <<"x">>, State#state.x),
-    ?utils:send_input_control(Channel, Name, <<"number">>, <<"x">>, State#state.y),
+    ?utils:send_input_control(Channel, Name, <<"number">>, <<"y">>, State#state.y),
+    ?utils:send_input_control(Channel, Name, <<"number">>, <<"K1">>, K1, #{min => -20, max => 20, step => 0.1}),
+    ?utils:send_input_control(Channel, Name, <<"number">>, <<"K2">>, K2, #{min => -20, max => 20, step => 0.1}),
+    ?utils:send_input_control(Channel, Name, <<"number">>, <<"K3">>, K3, #{min => -20, max => 20, step => 0.1}),
+    ?utils:send_input_control(Channel, Name, <<"number">>, <<"K4">>, K4, #{min => -20, max => 20, step => 0.1}),
+    ?utils:send_input_control(Channel, Name, <<"number">>, <<"K5">>, K5, #{min => -20, max => 20, step => 0.1}),
+    ?utils:send_input_control(Channel, Name, <<"number">>, <<"K6">>, K6, #{min => -20, max => 20, step => 0.1}),
+    ?utils:send_input_control(Channel, Name, <<"number">>, <<"K7">>, K7, #{min => -20, max => 20, step => 0.1}),
+    ?utils:send_input_control(Channel, Name, <<"number">>, <<"K8">>, K8, #{min => -20, max => 20, step => 0.1}),
+    ?utils:send_input_control(Channel, Name, <<"number">>, <<"K9">>, K9, #{min => -20, max => 20, step => 0.1}),
     State.
+
+set_1(State = #state{kernel = [_K1, K2, K3, K4, K5, K6, K7, K8, K9]}, I) ->
+    State#state{kernel = [I, K2, K3, K4, K5, K6, K7, K8, K9]}.
+
+set_2(State = #state{kernel = [K1, _K2, K3, K4, K5, K6, K7, K8, K9]}, I) ->
+    State#state{kernel = [K1, I, K3, K4, K5, K6, K7, K8, K9]}.
+
+set_3(State = #state{kernel = [K1, K2, _K3, K4, K5, K6, K7, K8, K9]}, I) ->
+    State#state{kernel = [K1, K2, I, K4, K5, K6, K7, K8, K9]}.
+
+set_4(State = #state{kernel = [K1, K2, K3, _K4, K5, K6, K7, K8, K9]}, I) ->
+    State#state{kernel = [K1, K2, K3, I, K5, K6, K7, K8, K9]}.
+
+set_5(State = #state{kernel = [K1, K2, K3, K4, _K5, K6, K7, K8, K9]}, I) ->
+    State#state{kernel = [K1, K2, K3, K4, I, K6, K7, K8, K9]}.
+
+set_6(State = #state{kernel = [K1, K2, K3, K4, K5, _K6, K7, K8, K9]}, I) ->
+    State#state{kernel = [K1, K2, K3, K4, K5, I, K7, K8, K9]}.
+
+set_7(State = #state{kernel = [K1, K2, K3, K4, K5, K6, _K7, K8, K9]}, I) ->
+    State#state{kernel = [K1, K2, K3, K4, K5, K6, I, K8, K9]}.
+
+set_8(State = #state{kernel = [K1, K2, K3, K4, K5, K6, K7, _K8, K9]}, I) ->
+    State#state{kernel = [K1, K2, K3, K4, K5, K6, K7, I, K9]}.
+
+set_9(State = #state{kernel = [K1, K2, K3, K4, K5, K6, K7, K8, _K9]}, I) ->
+    State#state{kernel = [K1, K2, K3, K4, K5, K6, K7, K8, I]}.
+
 
 -define(SETTING(S), fun(State_, I_) -> State_#state{S = I_} end).
 
--define(INT_SETTINGS, #{<<"x">> => ?SETTING(x),
-                        <<"y">> => ?SETTING(y)}).
+-define(SETTINGS, #{<<"x">> => ?SETTING(x),
+                    <<"y">> => ?SETTING(y),
+                    <<"K1">> => fun set_1/2,
+                    <<"K2">> => fun set_2/2,
+                    <<"K3">> => fun set_3/2,
+                    <<"K4">> => fun set_4/2,
+                    <<"K5">> => fun set_5/2,
+                    <<"K6">> => fun set_6/2,
+                    <<"K7">> => fun set_7/2,
+                    <<"K8">> => fun set_8/2,
+                    <<"K9">> => fun set_9/2}).
 
 set(Setting, Value, State)
   when Setting == <<"x">>;
        Setting == <<"y">> ->
+
   case catch binary_to_integer(Value) of
       I when is_integer(I) ->
-          #{Setting := Fun} = ?INT_SETTINGS,
+          #{Setting := Fun} = ?SETTINGS,
           Fun(State, I);
       _ ->
           State#state.channel ! {send, log, ws_anim_utils:log(<<"Invalid integer ", Value/binary, " for ", Setting/binary>>)},
+          State
+  end;
+set(Setting, Value, State)
+  when Setting == <<"K1">>;
+       Setting == <<"K2">>;
+       Setting == <<"K3">>;
+       Setting == <<"K4">>;
+       Setting == <<"K5">>;
+       Setting == <<"K6">>;
+       Setting == <<"K7">>;
+       Setting == <<"K8">>;
+       Setting == <<"K9">> ->
+  WithDecimal =
+      case binary:split(Value, <<".">>) of
+          [_Int] ->
+              <<Value/binary, ".0">>;
+          _ ->
+              Value
+      end,
+  case catch binary_to_float(WithDecimal) of
+      F when is_float(F) ->
+          #{Setting := Fun} = ?SETTINGS,
+          Fun(State, F);
+      _ ->
+          State#state.channel ! {send, log, ws_anim_utils:log(<<"Invalid float ", Value/binary, " for ", Setting/binary>>)},
           State
   end;
 set(<<"is_showing_name">>, Value, State) ->
@@ -227,11 +302,11 @@ shift_row_up_1(Bin, Width) ->
 
 shift_columns_right_1(Bin, Width) ->
     PixelWidth = Width * ?PIXEL_BYTES,
-    << <<0:(?PIXEL_BITS), Head/binary>> || <<Head:(PixelWidth - ?PIXEL_BYTES)/binary, _:?PIXEL_BYTES/binary>> <= Bin >>.
+    << <<0:?PIXEL_BITS, Head/binary>> || <<Head:(PixelWidth - ?PIXEL_BYTES)/binary, _:?PIXEL_BYTES/binary>> <= Bin >>.
 
 shift_columns_left_1(Bin, Width) ->
     PixelWidth = Width * ?PIXEL_BYTES,
-    << <<Tail/binary, 0:(?PIXEL_BITS)>> || <<_:?PIXEL_BYTES/binary, Tail:(PixelWidth - ?PIXEL_BYTES)/binary>> <= Bin>>.
+    << <<Tail/binary, 0:?PIXEL_BITS>> || <<_:?PIXEL_BYTES/binary, Tail:(PixelWidth - ?PIXEL_BYTES)/binary>> <= Bin>>.
 
 test_image() ->
     <<0,0,0,255,1,1,1,255,2,2,2,255,3,3,3,255,

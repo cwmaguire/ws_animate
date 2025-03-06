@@ -326,14 +326,14 @@ update_cached_call(EtsId, {Key, #{cached := true, id := Id}}) ->
        #{type => <<"draw">>,
          cmd => <<"cached">>,
          id => Id},
-    ets:insert(EtsId, {Key, ?utils:json(NewDrawCall)}),
-    Entries = ets:tab2list(EtsId),
-    case Entries of
-        [_ | _] ->
-            io:format(user, "Entries = ~p~n", [Entries]);
-        _ ->
-            ok
-    end;
+    ets:insert(EtsId, {Key, ?utils:json(NewDrawCall)});
+    % Entries = ets:tab2list(EtsId),
+    % case Entries of
+    %     [_ | _] ->
+    %         io:format(user, "Entries = ~p~n", [Entries]);
+    %     _ ->
+    %         ok
+    % end;
 update_cached_call(_, _) ->
     ok.
 
