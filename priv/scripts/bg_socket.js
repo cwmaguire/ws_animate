@@ -43,7 +43,7 @@ function route({data}){
   }else if(data?.target == 'draw'){
     drawWorker.postMessage(data);
   }else if(data?.target == 'main'){
-    selfWorker.postMessage(data);
+    self.postMessage(data);
   }else{
     dispatch(data);
   }
