@@ -20,6 +20,10 @@
 -export([test_image/0]).
 -export([id_kernel/0]).
 
+-define(BITS, 8).
+-define(PIXEL_BYTES, 4).
+-define(PIXEL_BITS, ?PIXEL_BYTES * ?BITS).
+
 -record(state, {name,
                 channel = undefined,
                 device_id = <<"cde819aad3a5f7da8759721271d1d3deaf3dbdce8666ecfb5f4180f93f5e0d00">>,
@@ -76,8 +80,11 @@ convolute_image(_State, Name, WebCacheId, Image) ->
     %_Bytes2 = [trunc(X / 2) || X <- Bytes],
 
     Kernel = [0, 0, 0,
-              0, 0, 1,
-              0, 0, 0],
+              0, 0, 0,
+              0, 1, 0],
+    % Kernel = [0, 0, 0,
+    %           0, 0, 1,
+    %           0, 0, 0],
     % Kernel = [0, -1, 0,
     %           -1, 4, -1,
     %           0, -1, 0],
@@ -87,7 +94,7 @@ convolute_image(_State, Name, WebCacheId, Image) ->
     %Kernel = [0, 0, 0,
               %0, 1, 0,
               %0, 0, 0],
-    Convoluted = apply_kernel(Kernel, Bin, 4),
+    Convoluted = apply_kernel(Kernel, Bin, 160),
     io:format(user, "Convoluted = ~p~n", [Convoluted]),
 
     %List = binary_to_list(Convoluted),
@@ -199,7 +206,6 @@ convolute({K, <<R/integer, G/integer, B/integer, A/integer>>}) ->
      K * A].
 
 kernel_binaries(Bin, Width) ->
-    %Width = ImageWidth * ?PIXEL_WIDTH,
     [shift_columns_right_1(shift_row_down_1(Bin, Width), Width),
      shift_row_down_1(Bin, Width),
      shift_columns_left_1(shift_row_down_1(Bin, Width), Width),
@@ -212,23 +218,20 @@ kernel_binaries(Bin, Width) ->
 
 shift_row_down_1(Bin, Width) ->
     Size = size(Bin),
-    <<Head:(Size - Width)/binary, _/binary>> = Bin,
-    <<0:(Width * 8 * 4), Head/binary>>.
-
--define(BITS, 8).
--define(PIXEL_BYTES, 4).
+    <<Head:(Size - (Width * ?PIXEL_BYTES))/binary, _/binary>> = Bin,
+    <<0:(Width * ?PIXEL_BITS), Head/binary>>.
 
 shift_row_up_1(Bin, Width) ->
     <<_:(Width * ?PIXEL_BYTES)/binary, Tail/binary>> = Bin,
-    <<Tail/binary, 0:(Width * ?BITS * ?PIXEL_BYTES)>>.
+    <<Tail/binary, 0:(Width * ?PIXEL_BITS)>>.
 
 shift_columns_right_1(Bin, Width) ->
-    PixelWidth = Width * 4,
-    << <<0:32, Head/binary>> || <<Head:(PixelWidth - 4)/binary, _:4/binary>> <= Bin >>.
+    PixelWidth = Width * ?PIXEL_BYTES,
+    << <<0:(?PIXEL_BITS), Head/binary>> || <<Head:(PixelWidth - ?PIXEL_BYTES)/binary, _:?PIXEL_BYTES/binary>> <= Bin >>.
 
 shift_columns_left_1(Bin, Width) ->
-    PixelWidth = Width * 4,
-    << <<Tail/binary, 0:32>> || <<_:4/binary, Tail:(PixelWidth - 4)/binary>> <= Bin>>.
+    PixelWidth = Width * ?PIXEL_BYTES,
+    << <<Tail/binary, 0:(?PIXEL_BITS)>> || <<_:?PIXEL_BYTES/binary, Tail:(PixelWidth - ?PIXEL_BYTES)/binary>> <= Bin>>.
 
 test_image() ->
     <<0,0,0,255,1,1,1,255,2,2,2,255,3,3,3,255,
