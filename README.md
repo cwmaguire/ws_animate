@@ -17,8 +17,11 @@ Given:
 - animation programs Aa and Ab
 
 Aa sends `draw box`: both W1 and W2 receive `draw box`
+
 Ab sends `draw circle`: both W1 and W2 receive `draw circle`
+
 W1 sends `make box blue`: Aa now draws blue boxes
+
 W2 sends `make circle 2px thick`: Ab now draws 2-pixel thick circles
 
 That is, both browser windows can talk to both animators, and vice versa.
