@@ -6,7 +6,28 @@ ws_animator - a hobby project
 - [Animation](https://github.com/cwmaguire/animation)
 - [Bezier](https://github.com/cwmaguire/bezier)
 
-Overview & Purpose
+Problem
+-----
+I want:
+1) multiple different animation "algorithms" to animate the same HTML canvas
+2) multiple browser windows to listen to animation events
+
+Given:
+- browser windows W1 and W2
+- animation programs Aa and Ab
+
+Aa sends `draw box`: both W1 and W2 receive `draw box`
+Ab sends `draw circle`: both W1 and W2 receive `draw circle`
+W1 sends `make box blue`: Aa now draws blue boxes
+W2 sends `make circle 2px thick`: Ab now draws 2-pixel thick circles
+
+That is, both browser windows can talk to both animators, and vice versa.
+
+This "many-to-many" relationship is handled with a "channel": multiple browser windows with websockets talking to multiple animation processs in Erlang.
+
+You can have one browser window for drawing on the canvas from two different animations, and two additional browser windows to edit settings for the two different animators.
+
+Overview
 -----
 An Erlang web server for animating in JS over a web socket. ws_animator allows for multiple websockets to subscribe to events from the same animation "channel". Each channel can run multiple animation processes running on different schedules. Currently, each websocket can only listen to one channel, but each channel can have multiple animators. Each animator only sends messages to one channel.
 
@@ -14,7 +35,7 @@ The channels buffer animation calls from the animators and send then all at once
 
 It wouldn't take a lot to allow sockets to subscribe to multiple channels, or for multiple channels to listen to the same animator, or animators to send messages to multiple channels.
 
-Architecture Overview
+Architecture Overview (Erlang Only)
 -----
 Web sockets connect to the Cowboy web server; Cowboy starts up our process to handle messages from the socket; our socket can connect to a "channel", which communicates with animator processes. Each socket can have one channel, but multiple sockets can have the same channel; each animator has one channel, but a channel can have multiple animators.
 
@@ -33,7 +54,7 @@ Protocol
 1. Animator sends draw calls to Channel buffer
 2. Channel sends messages (e.g. log, info) to the websocket
 1. Channel sends buffered draw calls to websocket
- 
+
 ![Protocol](doc/ws_animate_protocol_2025-02-10.drawio.png "Protocol")
 
 Build
@@ -45,13 +66,13 @@ Run
 -----
 
 - Run Erlang shell
-  - $ rebar shell
+  - $ rebar3 shell
 - Open web broswer
 - Navigate to http://localhost:8081/
   - goes to index.html
   - webpage should open websocket automatically
   - look in dev console
- 
+
 Add an Animator
 -----
 (Hint: copy an existing animator to get started.)
