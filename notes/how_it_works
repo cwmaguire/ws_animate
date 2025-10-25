@@ -1,4 +1,40 @@
 ┏━━━━━━━━━━━━━━━━┓
+┃   2025-10-25   ┃
+┗━━━━━━━━━━━━━━━━┛
+
+main.js has "dispatch" but bg_socket.js has "route".
+
+ws_anim_static_handler.erl is just a "hello world" static HTML generator.
+
+Cowboy:
+  - serves up HTML, scripts, and images
+  - serves up index.html on /
+  - serves up a websocket -> ws_anim_socket
+
+ws_anim_channel_registry is the only supervised process; it's a gen_server.
+  -> starts ws_anim_channel
+    - numeric ID
+    - PID of web socket process
+
+                      ┌────────────┐
+                    ┌►│ID (e.g. 19)├──┐
+┌────────────────┐  │ └────────────┘  │   ┌─────────────┐
+│channel registry├─┬┤                 ├──►│start channel│
+└────────────────┘ ││ ┌─────────────┐ │   └─────────────┘
+                   │└►│Websocket Pid├─┘
+                   │  └─────────────┘
+                   │
+                   │  ┌────────────────────┐
+                   ├─►│"clear all channels"├────┐   ┌─────────┐
+                   │  └────────────────────┘    ├──►│Websocket│
+                   │  ┌──────────────────────┐  │   └─────────┘
+                   └─►│"add updated channels"├──┘
+                      └──────────────────────┘
+
+Why does animation_controls.html have draw.js? Seems like animation controls is an
+extra browser window for controls for a specific animation.
+
+┏━━━━━━━━━━━━━━━━┓
 ┃   2025-10-24   ┃
 ┗━━━━━━━━━━━━━━━━┛
 
