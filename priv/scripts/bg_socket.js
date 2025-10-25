@@ -1,6 +1,6 @@
 'use strict';
 
-var channel;
+let channel;
 
 const drawWorker = new Worker('bg_draw.js');
 const socket = create_socket();

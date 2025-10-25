@@ -1,13 +1,13 @@
 'use strict';
 
-var canvas;
-var context2dWithDims;
+let canvas;
+let context2dWithDims;
 
-var receiveBuffer = [];
-var drawBuffer = [];
-var clickTargets = [];
+let receiveBuffer = [];
+let drawBuffer = [];
+let clickTargets = [];
 
-var transformSerialized;
+let transformSerialized;
 
 const drawCache = new Map();
 const imageCache = new Map();
@@ -135,8 +135,8 @@ function square_filled({ctx}, command){
 }
 
 function square_gradient({ctx}, command){
-  var {x, y, w, h, style : {gx1, gy1, gx2, gy2, stop1: {stop: s1, color: c1}, stop2: {stop: s2, color: c2}}} = command;
-  var gradient = ctx.createLinearGradient(gx1, gy1, gx2, gy2);
+  let {x, y, w, h, style : {gx1, gy1, gx2, gy2, stop1: {stop: s1, color: c1}, stop2: {stop: s2, color: c2}}} = command;
+  let gradient = ctx.createLinearGradient(gx1, gy1, gx2, gy2);
   gradient.addColorStop(s1, c1);
   gradient.addColorStop(s2, c2);
   ctx.fillStyle = gradient;
@@ -146,11 +146,15 @@ function square_gradient({ctx}, command){
 
 function circle({ctx}, command){
   const {x, y, r, style, name} = command;
-  //console.log(`square: x: ${x}, y: ${y}, w: ${w}, h: ${h}, style: ${style}`);
-  ctx.strokeSyle = style;
+  //ctx.fillSyle = style;
+  //console.log(`fillStyle = ${style}`);
+  ctx.fillSyle = 'red';
+  ctx.strokeSyle = 'green';
+
   ctx.beginPath();
-  ctx.ellipse(x, y, r, r, 0, 0, 2 * Math.PI);
-  ctx.stroke();
+  ctx.ellipse(x, y, r, r * 1.5, 0, 0, 2 * Math.PI);
+  ctx.closePath();
+  ctx.fill();
   add_click_target({...command, type: 'circle'});
 }
 
@@ -285,7 +289,7 @@ function trigger_video(deviceId){
 function maybe_wait_image(drawCommand){
   const {cmd, src} = drawCommand;
   if(cmd == 'image' && !imageReady.has(src)){
-    trigger_image
+    trigger_image();
     return false;
   }else{
     return true;

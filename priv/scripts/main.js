@@ -61,7 +61,7 @@ function dispatch({data}){
     console.log('Received filenames ...');
     console.dir(data);
     set_filenames(data.filenames);
-  }else if('channel' in data){
+  }else if('channel' in data){    // why 'channel' again? (see first if branch)
     if(data.channel != channel){
       add_channel(data.channel);
     }else{
@@ -382,7 +382,7 @@ function switch_channel(){
     {target: 'server',
      command: 'switch channel',
      channel: newChannel};
-  socketWorkder.postMessage(command);
+  socketWorker.postMessage(command);
 }
 
 function set_frame_millis(e){

@@ -6,8 +6,8 @@ var drawBuffer = [];
 var clickTargets = [];
 var stream;
 var transformSerialized;
-var drawCache = new Map();
-const loadedImages = new Map;
+let drawCache = new Map();
+const loadedImages = new Map();
 const PATH_TO_IMAGES = 'images/';
 
 function setup_canvas(canvas_, shouldAddClickTargeting = false){
@@ -142,7 +142,7 @@ function clear_canvas({ctx, w, h}){
 
 function square({ctx}, command){
   const {x, y, w, h, style, name} = command;
-  ctx.strokeSyle = style;
+  ctx.strokeStyle = style;
   ctx.strokeRect(x, y, w, h);
   add_click_target({...command, type: 'square'});
 }
@@ -171,7 +171,7 @@ function square_gradient({ctx}, command){
 function circle({ctx}, command){
   const {x, y, r, style, name} = command;
   //console.log(`square: x: ${x}, y: ${y}, w: ${w}, h: ${h}, style: ${style}`);
-  ctx.strokeSyle = style;
+  ctx.strokeStyle = style;
   ctx.beginPath();
   ctx.ellipse(x, y, r, r, 0, 0, 2 * Math.PI);
   ctx.stroke();
