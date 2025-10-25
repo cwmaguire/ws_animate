@@ -3,6 +3,7 @@
 -export([json/1]).
 -export([info/1]).
 -export([log/1]).
+-export([random_color/0]).
 -export([tuple_to_color/1]).
 -export([color_to_tuple/1]).
 -export([send_input_control/5]).
@@ -16,6 +17,12 @@ info(Map) ->
 
 log(Bin) ->
     json(#{type => <<"log">>, log => Bin}).
+
+random_color() ->
+    R = rand:uniform(255),
+    G = rand:uniform(255),
+    B = rand:uniform(255),
+    tuple_to_color({R, G, B}).
 
 -define(ZERO_PAD_HEX, "~2.16.0B").
 

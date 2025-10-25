@@ -24,7 +24,7 @@ rec_info() -> {record_info(size, state),
 init(Name, Channel) ->
     #state{name = Name,
            channel = Channel,
-           style = random_style()}.
+           style = ?utils:random_color()}.
 
 animate(#{frame := Frame},
         State = #state{name = Name,
@@ -135,9 +135,3 @@ set(<<"is_showing_name">>, Value, State) ->
 set(Field, _Value, State) ->
     State#state.channel ! {send, log, ws_anim_utils:log(<<"Unrecognized field: ", Field/binary>>)},
     State.
-
-random_style() ->
-    R = rand:uniform(255),
-    G = rand:uniform(255),
-    B = rand:uniform(255),
-    ?utils:tuple_to_color({R, G, B}).

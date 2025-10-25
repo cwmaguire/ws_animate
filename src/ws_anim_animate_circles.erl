@@ -10,10 +10,11 @@
 
 -record(state, {name,
                 channel = undefined,
-                radius = 300,
+                radius = 30,
                 style = <<"black">>,
-                xf = 100,
-                yf = 100,
+                number = 5,
+                xd = 1,
+                yd = 1,
                 is_showing_name = false}).
 
 rec_info() -> {record_info(size, state),
@@ -23,33 +24,39 @@ init(Name, Channel) ->
     #state{name = Name, channel = Channel}.
 
 animate(#{frame := Frame},
-        State = #state{name = Name,
-                       channel = Channel}) ->
-    Id = {_ZIndex = 100, self(), 1},
-    {Circle, X, Y} = circle(State, Frame, Name),
-    Channel ! {buffer, {Id, Circle}},
+        State = #state{channel = Channel}) ->
+    Circles = circles(State, Frame),
+    ws_anim_channel:buffer_delete(Channel),
+    [Channel ! {buffer, C} || {C, _X, _Y} <- Circles],
+    [{_, X, Y} | _] = Circles,
     maybe_send_name(State, X, Y),
     State.
 
-circle(State, Frame, Name) ->
-    XF = State#state.xf,
-    YF = State#state.yf,
-    FX = Frame rem XF,
-    FY = Frame rem YF,
-    R = State#state.radius,
-    %R = trunc(abs(math:cos((Frame / 100))) * State#state.radius),
-    X = trunc((FX / XF) * 820) - 10,
-    %X = trunc(abs(math:sin((Frame / 100))) * (800 - R)),
-    Y = trunc((FY / YF) * 720) - 10,
-    %Y = trunc(abs(math:cos((Frame / 100))) * (700 - R)),
+-define(CANVAS_WIDTH, 800).
+-define(CANVAS_HEIGHT, 700).
+
+circles(State, Frame) ->
+    Number = State#state.number,
+    F = Frame rem 100,
+    Circle = fun(I) -> circle(I, F, State) end,
+    [Circle(I) || I <- lists:seq(1, Number)].
+
+circle(I,
+       F,
+       #state{number = N, xd = XD, yd = YD, radius = R, style = _Style, name = Name}) ->
+    Id = {_ZIndex = rand:uniform(100), self(), I},
+    BaseX = I/N * ?CANVAS_WIDTH,
+    BaseY = I/N * ?CANVAS_HEIGHT,
+    X = trunc(BaseX + (F * XD)) rem ?CANVAS_WIDTH,
+    Y = trunc(BaseY + (F * YD)) rem ?CANVAS_HEIGHT,
     Map = #{type => <<"draw">>,
             cmd => <<"circle">>,
             x => X,
             y => Y,
             r => R,
-            style => State#state.style,
+            style => ?utils:random_color(),
             name => Name},
-    {ws_anim_utils:json(Map), X, Y}.
+    {{Id, ws_anim_utils:json(Map)}, X, Y}.
 
 maybe_send_name(#state{name = Name,
                        channel = Channel,
@@ -77,20 +84,23 @@ send_controls(State = #state{name = Name, channel = Channel}) ->
     ?utils:send_input_control(Channel, Name, <<"checkbox">>, <<"is_showing_name">>, State#state.is_showing_name),
     ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"radius">>, State#state.radius),
     ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"style">>, State#state.style),
-    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"xf">>, State#state.xf),
-    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"yf">>, State#state.yf),
+    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"xd">>, State#state.xd, #{min => -20, max => 20}),
+    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"yd">>, State#state.yd, #{min => -20, max => 20}),
+    ?utils:send_input_control(Channel, Name, <<"textbox">>, <<"number">>, State#state.number),
     State.
 
 -define(SETTING(S), fun(State_, I_) -> State_#state{S = I_} end).
 
 -define(SETTINGS, #{<<"radius">> => ?SETTING(radius),
-                    <<"xf">> => ?SETTING(xf),
-                    <<"yf">> => ?SETTING(yf)}).
+                    <<"number">> => ?SETTING(number),
+                    <<"xd">> => ?SETTING(xd),
+                    <<"yd">> => ?SETTING(yd)}).
 
 set(Setting, Value, State)
   when Setting == <<"radius">>;
-       Setting == <<"xf">>;
-       Setting == <<"yf">> ->
+       Setting == <<"xd">>;
+       Setting == <<"yd">>;
+       Setting == <<"number">> ->
 
   case catch binary_to_integer(Value) of
       I when is_integer(I) ->
