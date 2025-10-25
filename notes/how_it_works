@@ -1,0 +1,124 @@
+┏━━━━━━━━━━━━━━━━┓
+┃   2025-10-24   ┃
+┗━━━━━━━━━━━━━━━━┛
+
+From index.html you can create an animation controls window
+for an animation
+
+              ┌───────┐    ┌─────────────────┐  ┌───────────────────────┐
+          ┌──►│main.js├───►│open_new_window()├─►│animation_controls.html│
+┌─────┐   │   └───────┘    └─────────────────┘  └───────────────────────┘
+│index├───┤   ┌─────────────────────┐
+└─────┘   └──►│animation_controls.js│
+              └─────────────────────┘
+
+
+
+On Load:
+
+  Create a bunch of divs by passing the ID and a function to create
+  all the elements; e.g. button, select_list, br
+
+┌───────┐   ┌────────────────────────────┐
+│main.js├──►│create_canvas_and_controls()│
+└───────┘   └───────┬────────────────────┘
+                    │       ┌──────────────────────┐
+                    ├──────►│channel_controls_div()│
+                    │       └──────────────────────┘
+                    │       ┌────────────────────────┐
+                    ├──────►│load_save_controls_div()│
+                    │       └────────────────────────┘
+                    │       ┌───────────────────┐
+                    ├──────►│page_controls_div()│
+                    │       └───────────────────┘
+                    │       ┌─────────────────────┐
+                    ├──────►│animator_button_div()│
+                    │       └─────────────────────┘
+                    │       ┌──────────────────────────────┐
+                    ├──────►│animator_controls_button_div()│
+                    │       └──────────────────────────────┘
+                    │       ┌────────────┐
+                    ├──────►│add_canvas()│
+                    │       └────────────┘
+                    │       ┌──────────────────────────────┐
+                    └──────►│animator_controls_fifo_panel()│
+                            └──────────────────────────────┘
+
+Ah! Click Targeting
+
+  I think I remember now: I wanted to click on something that was being
+  animated. I think I might have stored where the animated things was
+  when I specified where to draw it, so that I could click on it.
+
+
+Routing:
+
+  Some of it.
+
+  The bg_draw worker routes back to the main.js ... main thread?
+  vis bg_socket.
+
+  main starts bg_socket, bg_socket starts bg_draw, so bg_draw doesn't
+  know about the main thread.
+
+  The 'message' event handler receives messages, the self.postMessage
+  posts back to the parent thread.
+
+  bg_socket routes based on "target" and "command"
+
+  bg_socket, unsurprisingly, opens the web socket.
+
+
+                        ┌─────────────────┐
+                  ┌─────┤main - wait image│◄─────────────────┐
+┌───────┐         │     └─────────────────┘                  │
+│main.js│         │     ┌─────────────────┐                  │
+└───────┘         ├─────┤main - wait video│◄─────────────────┤
+    ▲             │     └─────────────────┘                  │
+    │             │     ┌───────────────────┐                │
+    │             ├─────┤main - click target│◄───────────────┤
+    │  via        │     └───────────────────┘                │
+    │  bg_socket  │                                          │
+    └─────────────┘                                          │
+┌────────────────────┐                               ┌───────┴──────────┐
+│Worker: bg_socket.js├──────────────────────────────►│Worker: bg_draw.js│
+└──────────────────┬─┘                               └──────────────────┘
+                   │                                         ▲▲▲
+                   │    ┌────────────────────────┐           │││
+                   ├───►│draw   - transfer canvas├───────────┘││
+                   │    └────────────────────────┘            ││
+                   │    ┌─────────────────────┐               ││
+                   ├───►│draw   - click target├───────────────┘│
+                   │    └─────────────────────┘                │
+                   │    ┌───────────────────────┐              │
+                   ├───►│draw   - video is ready├──────────────┘
+                   │    └───────────────────────┘
+                   │    ┌────────────────────────┐
+                   ├───►│server - animator add ..├──────────────┐
+                   │    └────────────────────────┘              │
+                   │    ┌───────────────────────┐               │      ┌──────────┐
+                   ├───►│server - switch channel├───────────────┼─────►│web socket│
+                   │    └───────────────────────┘               │      └──────────┘
+                   │    ┌─────────────────────────────────┐     │
+                   ├───►│server - channel set frame millis├─────┤
+                   │    └─────────────────────────────────┘     │
+                   │    ┌────────────────────────┐              │
+                   └───►│server - load_animations├──────────────┘
+                        └────────────────────────┘
+
+
+
+
+           ┌─────────────┐
+       ┌──►│bg_send_iamge│
+       │   └─────────────┘
+       │
+┌────┐ │   ┌─────────┐    ┌───────┐
+│main├─┴──►│bg_socket├───►│bg_draw│
+└────┘     └────┬────┘    └───────┘
+                │
+                │
+                ▼
+           ┌──────────┐
+           │web socket│
+           └──────────┘
