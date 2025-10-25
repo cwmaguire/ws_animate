@@ -1,4 +1,4 @@
-"use string";
+'use strict';
 
 function animation_controls_start(channel,
                                   animatorName,
